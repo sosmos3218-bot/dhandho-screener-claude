@@ -1,0 +1,95 @@
+# 매주 미국(S&P 500) Dhandho 스크리닝 → 뉴스레터 생성 → SMTP 발송
+#
+# ⚠️ 이 워크플로는 GitHub 저장소에 push 되어야 동작합니다. (지금은 "준비된 파일")
+# ⚠️ 한국 종목(pykrx)은 GitHub 의 미국 IP 에서 KRX 가 막혀 자동수집이 불안정하므로
+#    여기서는 미국(US)만 스캔합니다. 한국까지 자동화하려면 국내 VPS/라즈베리파이를 쓰세요.
+#
+# [필요한 GitHub Secrets]  (Settings → Secrets and variables → Actions)
+#   SMTP_HOST      예: smtp.gmail.com
+#   SMTP_PORT      예: 465
+#   SMTP_USER      보내는 Gmail/네이버 주소
+#   SMTP_PASS      앱 비밀번호 (일반 비밀번호 아님)
+#   SMTP_FROMNAME  예: 단도 위클리
+#   SUBSCRIBERS    구독자 이메일 콤마(,)로 구분  예: a@x.com,b@y.com
+#   (SMTP_* 를 설정하지 않으면 발송은 건너뛰고 뉴스레터 파일만 생성/보관)
+
+name: weekly-dhandho-newsletter
+
+on:
+  schedule:
+    # cron 은 UTC 기준. 월요일 08:00 KST = 일요일 23:00 UTC.
+    - cron: "0 23 * * 0"
+  workflow_dispatch: {}        # Actions 탭에서 수동 실행 버튼
+
+permissions:
+  contents: write              # 스냅샷을 저장소에 다시 커밋(주차 간 diff 유지)
+
+concurrency:
+  group: weekly-dhandho
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치 (미국 스캔에 필요한 최소만)
+        run: pip install --quiet pandas yfinance
+
+      - name: secrets.json 생성 (GitHub Secrets → 파일)
+        if: ${{ env.SMTP_USER != '' }}
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROMNAME: ${{ secrets.SMTP_FROMNAME }}
+          SUBSCRIBERS: ${{ secrets.SUBSCRIBERS }}
+        run: |
+          python - <<'PY'
+          import json, os
+          subs = [s.strip() for s in os.environ.get("SUBSCRIBERS", "").split(",") if s.strip()]
+          cfg = {
+              "smtp": {
+                  "host": os.environ.get("SMTP_HOST", "smtp.gmail.com"),
+                  "port": int(os.environ.get("SMTP_PORT", "465")),
+                  "user": os.environ["SMTP_USER"],
+                  "password": os.environ["SMTP_PASS"],
+                  "from_name": os.environ.get("SMTP_FROMNAME", "단도 위클리"),
+              },
+              "subscribers": subs,
+          }
+          json.dump(cfg, open("secrets.json", "w"), ensure_ascii=False)
+          print("secrets.json 생성됨, 구독자", len(subs), "명")
+          PY
+
+      - name: 스냅샷(미국) → 뉴스레터 생성 → (secrets 있으면) 발송
+        run: |
+          python snapshot.py US
+          python newsletter.py --send
+
+      - name: secrets.json 정리 (저장소에 남기지 않음)
+        if: always()
+        run: rm -f secrets.json
+
+      - name: 산출물 업로드 (뉴스레터)
+        uses: actions/upload-artifact@v4
+        with:
+          name: newsletter
+          path: newsletter/
+          if-no-files-found: warn
+
+      - name: 스냅샷 변경분 커밋 (주차 간 diff 유지용)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add snapshots/
+          git diff --staged --quiet || git commit -m "chore: weekly snapshot $(date +%F)"
+          git push || echo "push 생략(권한/변경없음)"
