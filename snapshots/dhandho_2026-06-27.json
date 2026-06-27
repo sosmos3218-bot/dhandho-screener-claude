@@ -1,8 +1,8 @@
 {
   "date": "2026-06-27",
-  "market": "ALL",
-  "total_scanned": 512,
-  "n_pass": 32,
+  "market": "US",
+  "total_scanned": 502,
+  "n_pass": 28,
   "passes": [
     {
       "market": "US",
@@ -25,15 +25,15 @@
     },
     {
       "market": "US",
-      "ticker": "LULU",
-      "name": "lululemon athletica inc.",
-      "moat_tag": "none",
+      "ticker": "ACN",
+      "name": "Accenture plc",
+      "moat_tag": "narrow",
       "dhandho_score": 100.0,
-      "fcf_yield": 8.49,
-      "debt_equity": 0.43,
-      "roic": 35.2,
-      "pe": 9.53,
-      "earnings_yield": 15.82,
+      "fcf_yield": 15.32,
+      "debt_equity": 0.27,
+      "roic": 23.56,
+      "pe": 10.3,
+      "earnings_yield": 13.76,
       "downside_score": 100.0,
       "flags": [
         "💰현금흐름",
@@ -44,34 +44,15 @@
     },
     {
       "market": "US",
-      "ticker": "ACN",
-      "name": "Accenture plc",
-      "moat_tag": "narrow",
+      "ticker": "LULU",
+      "name": "lululemon athletica inc.",
+      "moat_tag": "none",
       "dhandho_score": 100.0,
-      "fcf_yield": 15.32,
-      "debt_equity": 0.27,
-      "roic": 22.82,
-      "pe": 10.3,
-      "earnings_yield": 13.33,
-      "downside_score": 100.0,
-      "flags": [
-        "💰현금흐름",
-        "🛡️저부채",
-        "🏰해자",
-        "🎯저평가"
-      ]
-    },
-    {
-      "market": "KR",
-      "ticker": "271560",
-      "name": "오리온",
-      "moat_tag": "wide",
-      "dhandho_score": 100.0,
-      "fcf_yield": 8.59,
-      "debt_equity": 0.01,
-      "roic": 11.64,
-      "pe": 13.06,
-      "earnings_yield": 15.61,
+      "fcf_yield": 8.49,
+      "debt_equity": 0.43,
+      "roic": 35.2,
+      "pe": 9.53,
+      "earnings_yield": 15.82,
       "downside_score": 100.0,
       "flags": [
         "💰현금흐름",
@@ -448,24 +429,6 @@
       ]
     },
     {
-      "market": "KR",
-      "ticker": "035420",
-      "name": "NAVER",
-      "moat_tag": "wide",
-      "dhandho_score": 89.6,
-      "fcf_yield": 4.96,
-      "debt_equity": 0.19,
-      "roic": 6.54,
-      "pe": 15.04,
-      "earnings_yield": 9.83,
-      "downside_score": 88.6,
-      "flags": [
-        "🛡️저부채",
-        "🏰해자",
-        "🎯저평가"
-      ]
-    },
-    {
       "market": "US",
       "ticker": "BRK-B",
       "name": "Berkshire Hathaway Inc. New",
@@ -538,24 +501,6 @@
       ]
     },
     {
-      "market": "KR",
-      "ticker": "033780",
-      "name": "KT&G",
-      "moat_tag": "wide",
-      "dhandho_score": 67.9,
-      "fcf_yield": 1.19,
-      "debt_equity": 0.19,
-      "roic": 10.92,
-      "pe": 15.94,
-      "earnings_yield": 8.79,
-      "downside_score": 74.5,
-      "flags": [
-        "🛡️저부채",
-        "🏰해자",
-        "🎯저평가"
-      ]
-    },
-    {
       "market": "US",
       "ticker": "COF",
       "name": "Capital One Financial Corporati",
@@ -570,24 +515,6 @@
       "flags": [
         "💰현금흐름",
         "🛡️저부채",
-        "🎯저평가"
-      ]
-    },
-    {
-      "market": "KR",
-      "ticker": "035250",
-      "name": "강원랜드",
-      "moat_tag": "wide",
-      "dhandho_score": 56.9,
-      "fcf_yield": 0.06,
-      "debt_equity": 0.01,
-      "roic": 7.8,
-      "pe": 8.8,
-      "earnings_yield": NaN,
-      "downside_score": 70.2,
-      "flags": [
-        "🛡️저부채",
-        "🏰해자",
         "🎯저평가"
       ]
     }
