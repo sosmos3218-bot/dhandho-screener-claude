@@ -199,6 +199,20 @@ def fetch_us(ticker: str, use_cache: bool = True) -> dict:
     return out
 
 
+def fetch_jp(ticker: str, use_cache: bool = True) -> dict:
+    """일본 종목 표준 dict (yfinance .T — 가격·펀더멘털 모두 자동, JPY)."""
+    if use_cache:
+        cached = _cache_get(f"jp_{ticker}")
+        if cached is not None:
+            return cached
+    out = _yf_raw(ticker, "JP")
+    out["moat_tag"] = config.moat_tag_jp(ticker)
+    if use_cache and not out.get("error"):
+        _cache_set(f"jp_{ticker}", out)
+    time.sleep(0.2)
+    return out
+
+
 def _op_margin_std(fin: pd.DataFrame):
     """다년 영업이익률(영업이익/매출) 표준편차(%p)."""
     if fin is None or fin.empty:
@@ -347,4 +361,50 @@ def fetch_kr(ticker: str, info: dict, ref: dt.date = None, use_cache: bool = Tru
     if use_cache:
         _cache_set(cache_key, out)
     time.sleep(0.2)
+    return out
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 시장 자동 감지 (포트폴리오 건강검진용)
+# ──────────────────────────────────────────────────────────────────────────
+def fetch_auto(ticker: str, use_cache: bool = True) -> dict:
+    """
+    티커 형식으로 시장을 자동 감지해 표준 dict 반환.
+      - 끝이 .T               → 일본
+      - 끝이 .KS / .KQ        → 한국 (명시)
+      - 6자리 숫자            → 한국 (KOSPI .KS 시도 → 실패 시 KOSDAQ .KQ)
+      - 그 외(영문 티커)      → 미국
+    워치리스트/유니버스에 있으면 등록된 해자 태그를 사용한다.
+    """
+    t = ticker.strip().upper()
+    if not t:
+        return _empty_row(ticker, "?")
+
+    # 일본
+    if t.endswith(".T"):
+        return fetch_jp(t, use_cache=use_cache)
+
+    # 한국 (명시 접미사)
+    if t.endswith(".KS") or t.endswith(".KQ"):
+        code = t.split(".")[0]
+        info = dict(config.KR_WATCHLIST.get(code, {}))
+        info.setdefault("name", code)
+        info["yf"] = t
+        info.setdefault("moat_tag", "none")
+        return fetch_kr(code, info, use_cache=use_cache)
+
+    # 한국 (6자리 숫자)
+    if t.isdigit() and len(t) == 6:
+        if t in config.KR_WATCHLIST:
+            return fetch_kr(t, config.KR_WATCHLIST[t], use_cache=use_cache)
+        r = fetch_kr(t, {"name": t, "yf": f"{t}.KS", "moat_tag": "none"}, use_cache=use_cache)
+        if r.get("market_cap") is None and r.get("fcf") is None:  # KOSPI 실패 → KOSDAQ 재시도
+            r = fetch_kr(t, {"name": t, "yf": f"{t}.KQ", "moat_tag": "none"}, use_cache=use_cache)
+        return r
+
+    # 미국 (기본)
+    if t in config.US_UNIVERSE:
+        return fetch_us(t, use_cache=use_cache)
+    out = _yf_raw(t, "US")
+    out["moat_tag"] = config.moat_tag_us(t)
     return out

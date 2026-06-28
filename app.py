@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import config
+import portfolio_io
 import screening
 
 st.set_page_config(page_title="Dhandho 가치투자 스크리너", page_icon="🏰", layout="wide")
@@ -51,11 +52,11 @@ def load_latest_snapshots():
 # ──────────────────────────────────────────────────────────────────────────
 st.sidebar.title("⚙️ Dhandho 필터")
 
-market = st.sidebar.radio("시장", ["ALL", "US", "KR"], horizontal=True,
-                          format_func=lambda m: {"ALL": "전체", "US": "미국", "KR": "한국"}[m])
-us_limit = st.sidebar.slider("미국 스캔 종목 수 (0=전체)", 0, len(config.US_UNIVERSE),
+market = st.sidebar.radio("시장", ["ALL", "US", "KR", "JP"], horizontal=True,
+                          format_func=lambda m: {"ALL": "전체", "US": "미국", "KR": "한국", "JP": "일본"}[m])
+us_limit = st.sidebar.slider("스캔 종목 수 (미국·일본, 0=전체)", 0, len(config.US_UNIVERSE),
                              min(20, len(config.US_UNIVERSE)),
-                             help="yfinance 레이트리밋 방어용. 처음엔 20개로 검증 후 늘리세요.")
+                             help="yfinance 레이트리밋 방어용. 미국·일본 유니버스에 적용. 처음엔 20개로 검증 후 늘리세요.")
 
 if st.sidebar.button("🔄 새로고침 (캐시 비우기)"):
     st.cache_data.clear()
@@ -129,8 +130,9 @@ else:
 # ──────────────────────────────────────────────────────────────────────────
 # 탭 구성
 # ──────────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["📋 스크리닝 결과", "📊 분석 차트", "🔬 종목 상세", "🔄 신규/탈락(주간 스냅샷)"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["📋 스크리닝 결과", "📊 분석 차트", "🔬 종목 상세",
+     "🔄 신규/탈락(주간 스냅샷)", "🩺 포트폴리오 건강검진"])
 
 # ── 탭 1: 결과 테이블 ──────────────────────────────────────────────────────
 with tab1:
@@ -274,9 +276,126 @@ with tab4:
             else:
                 st.write("없음")
 
+# ── 탭 5: 포트폴리오 건강검진 (진단형 — 매수/매도 권유 아님) ────────────────
+with tab5:
+    st.markdown("#### 🩺 내 보유종목 Dhandho 건강검진")
+    st.info(
+        "ℹ️ **이 기능은 보유종목이 Dhandho 4축(현금흐름·부채·해자·저평가)에서 "
+        "어떤 점수인지 보여주는 객관 지표 진단입니다.** "
+        "특정 종목의 매수·매도·보유, '물타기' 또는 '손절' 여부를 권유하지 않습니다. "
+        "점수의 해석과 모든 투자 판단은 전적으로 본인의 몫입니다.",
+        icon="ℹ️")
+
+    # 1) 입력 양식 받기
+    st.markdown("**1) 입력 양식 받기** (선택) — 받아서 보유종목을 채운 뒤 업로드하세요")
+    dc1, dc2, _ = st.columns([1.2, 1.2, 3])
+    dc1.download_button("⬇️ 엑셀 템플릿(.xlsx)", data=portfolio_io.template_xlsx_bytes(),
+                        file_name="dhandho_portfolio_template.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    dc2.download_button("⬇️ CSV 템플릿(.csv)", data=portfolio_io.template_csv_bytes(),
+                        file_name="dhandho_portfolio_template.csv", mime="text/csv")
+
+    # 2) 파일 업로드 또는 직접 입력
+    st.markdown("**2) 보유종목 입력** — 파일 업로드(우선) 또는 아래 직접 입력")
+    up = st.file_uploader("포트폴리오 파일 (.xlsx / .csv)", type=["xlsx", "csv"],
+                          help="'티커' 열 필수. 보유수량·평균단가는 선택(평가손익 표시에 사용).")
+    txt = st.text_area("또는 티커 직접 입력 (줄바꿈/콤마 구분)",
+                       value="AAPL\n005930\n7203.T\n033780\nKO", height=110)
+    st.caption("티커 형식: 미국=AAPL · 한국=005930 (6자리) · 일본=7203.T (.T)")
+    go = st.button("🔍 건강검진 실행", type="primary")
+
+    @st.cache_data(ttl=43200, show_spinner="보유종목 진단 중...")
+    def run_diagnose(tickers_tuple):
+        return screening.diagnose(list(tickers_tuple), use_cache=True)
+
+    if go:
+        raw_list, holdings = [], {}  # holdings: 티커 -> (수량, 평단)
+        if up is not None:
+            try:
+                pdf = portfolio_io.parse_upload(up)
+                raw_list = pdf["ticker"].tolist()
+                holdings = {row["ticker"]: (row["qty"], row["avg_price"])
+                            for _, row in pdf.iterrows()}
+                st.caption(f"📄 업로드 파싱: {len(raw_list)}개 종목 (파일 우선 적용)")
+            except Exception as e:
+                st.error(f"파일 파싱 실패: {e}")
+        else:
+            raw_list = [t.strip() for chunk in txt.split("\n")
+                        for t in chunk.split(",") if t.strip()]
+
+        if not raw_list:
+            st.warning("티커를 1개 이상 입력하거나 파일을 올려주세요.")
+        else:
+            d = run_diagnose(tuple(raw_list))
+            ok = d[d["data_ok"]]
+            bad = d[~d["data_ok"]]
+
+            if not ok.empty:
+                s1, s2, s3 = st.columns(3)
+                s1.metric("진단 종목", f"{len(ok)}개")
+                s2.metric("평균 Dhandho", fmt(ok["dhandho_score"].mean()))
+                strong = int((ok["dhandho_score"] >= 75).sum())
+                s3.metric("Dhandho 기준 강함(75↑)", f"{strong}개")
+
+            # 종목별 진단 카드
+            for _, r in ok.iterrows():
+                label = screening.strength_label(r["dhandho_score"])
+                badge = {"Dhandho 기준 강함": "🟢", "보통": "🟡", "Dhandho 기준 약함": "🔴"}.get(label, "⚪")
+                with st.container(border=True):
+                    h1, h2 = st.columns([2, 3])
+                    with h1:
+                        st.markdown(f"### {r['name']}")
+                        st.caption(f"{r['input']} · {r['market']} · 해자 {r['moat_tag']}")
+                        st.metric("Dhandho 종합", f"{r['dhandho_score']}", f"{badge} {label}")
+                    with h2:
+                        ax = pd.DataFrame({
+                            "축": ["①현금흐름", "②저부채", "③해자", "④저평가"],
+                            "점수": [r["score_cashflow"], r["score_debt"],
+                                   r["score_moat"], r["score_value"]],
+                        })
+                        st.bar_chart(ax.set_index("축"), height=180, horizontal=True)
+                    # 객관 지표 (사실 나열 — 해석/권유 없음)
+                    st.markdown(
+                        f"- ① FCF수익률 **{fmt(r['fcf_yield'],'%')}** · P/FCF {fmt(r['p_fcf'])}  "
+                        f"&nbsp;②부채/자본 **{fmt(r['debt_equity'],digits=2)}** · 순부채/EBITDA {fmt(r['netdebt_ebitda'])}\n"
+                        f"- ③ ROIC **{fmt(r['roic'],'%')}** · 매출총이익률 {fmt(r['gross_margin'],'%')}  "
+                        f"&nbsp;④ P/E **{fmt(r['pe'])}** · P/B {fmt(r['pb'])} · 이익수익률 {fmt(r['earnings_yield'],'%')}"
+                    )
+                    # 업로드 파일에 보유수량/평단이 있으면 본인 포지션 사실 표시 (동일통화 가정)
+                    if r["input"] in holdings:
+                        q, avg = holdings[r["input"]]
+                        parts = []
+                        if pd.notna(q):
+                            parts.append(f"보유 {q:,.0f}주")
+                        if pd.notna(avg):
+                            parts.append(f"평단 {avg:,.2f}")
+                            if r.get("price"):
+                                ret = (r["price"] - avg) / avg * 100
+                                parts.append(f"현재 {r['price']:,.2f} · 평가손익 **{ret:+.1f}%**")
+                        if parts:
+                            st.caption("💼 " + " · ".join(parts) + "  (본인 입력 기준·동일통화 가정, 사실 정보)")
+                    weak = [n for n, s in [("현금흐름", r["score_cashflow"]), ("부채", r["score_debt"]),
+                                           ("해자", r["score_moat"]), ("저평가", r["score_value"])] if s < 40]
+                    strongx = [n for n, s in [("현금흐름", r["score_cashflow"]), ("부채", r["score_debt"]),
+                                              ("해자", r["score_moat"]), ("저평가", r["score_value"])] if s >= 70]
+                    note = []
+                    if strongx:
+                        note.append(f"상대적 강점: {', '.join(strongx)}")
+                    if weak:
+                        note.append(f"상대적 약점: {', '.join(weak)}")
+                    if note:
+                        st.caption("📌 " + " · ".join(note) + "  (사실 정보이며 매매 판단 아님)")
+
+            if not bad.empty:
+                st.warning("조회 실패(티커/형식 확인): " +
+                           ", ".join(bad["input"].astype(str).tolist()))
+
+    st.caption("⚠️ 다시 강조: 본 진단은 **정보 제공·교육용 객관 점수**이며 매수·매도·보유 권유가 아닙니다. "
+               "'물타기/손절' 판단을 대신하지 않습니다. 데이터는 yfinance(지연·오류 가능) 기준입니다.")
+
 st.markdown("---")
 st.caption(
     "⚠️ 본 대시보드는 정보 제공용이며 투자 권유가 아닙니다. 해자(Moat)는 본질적으로 정성 판단이며 "
-    "여기서는 ROIC·마진 안정성·수동 태그로 근사한 보조 지표입니다. 한국 종목 펀더멘털은 config.py "
-    "수동 입력(PLACEHOLDER)이므로 실제 판단 전 DART·FnGuide·증권사 리포트로 반드시 검증하세요."
+    "여기서는 ROIC·마진 안정성·수동 태그로 근사한 보조 지표입니다. 펀더멘털은 yfinance(미국·한국·일본) "
+    "자동 수집값으로 지연·오류가 있을 수 있으니, 실제 판단 전 DART·FnGuide·증권사 리포트로 반드시 검증하세요."
 )

@@ -171,10 +171,52 @@ def build_universe(market: str = "ALL", ref: dt.date = None,
             raw = data.fetch_kr(t, info, ref=ref, use_cache=use_cache)
             rows.append(build_row(raw))
 
+    if market in ("JP", "ALL"):
+        tickers = config.all_jp()
+        if limit:
+            tickers = tickers[:limit]
+        for t in tickers:
+            raw = data.fetch_jp(t, use_cache=use_cache)
+            if raw.get("error"):
+                continue
+            rows.append(build_row(raw))
+
     if not rows:
         return pd.DataFrame()
     df = pd.DataFrame(rows)
     return df.sort_values("dhandho_score", ascending=False).reset_index(drop=True)
+
+
+def diagnose(tickers, use_cache: bool = True) -> pd.DataFrame:
+    """
+    포트폴리오 건강검진: 사용자가 보유한 종목들을 Dhandho 4축으로 *객관 진단*한다.
+    ⚠️ 매수/매도/보유 권유가 아니라 정보 제공용 점수표다 (data.fetch_auto 자동 감지).
+    각 행에 data_ok(데이터 수집 성공 여부) 플래그 포함.
+    """
+    rows = []
+    for raw_t in tickers:
+        t = str(raw_t).strip()
+        if not t:
+            continue
+        raw = data.fetch_auto(t, use_cache=use_cache)
+        row = build_row(raw)
+        row["input"] = t
+        row["data_ok"] = not raw.get("error") and raw.get("market_cap") is not None
+        rows.append(row)
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values("dhandho_score", ascending=False).reset_index(drop=True)
+
+
+def strength_label(score) -> str:
+    """Dhandho 점수 → 설명 라벨(행동 권유 아님, 점수 구간 설명)."""
+    if score is None or (isinstance(score, float) and pd.isna(score)):
+        return "데이터없음"
+    if score >= 75:
+        return "Dhandho 기준 강함"
+    if score >= 50:
+        return "보통"
+    return "Dhandho 기준 약함"
 
 
 # 화면/스냅샷용 컬럼 순서
