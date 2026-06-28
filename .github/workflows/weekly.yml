@@ -22,7 +22,7 @@ on:
   workflow_dispatch: {}        # Actions 탭에서 수동 실행 버튼
 
 permissions:
-  contents: write              # 스냅샷을 저장소에 다시 커밋(주차 간 diff 유지)
+  contents: read               # 봇이 원격을 건드리지 않음 (로컬 push 와 충돌 방지)
 
 concurrency:
   group: weekly-dhandho
@@ -79,17 +79,13 @@ jobs:
         if: always()
         run: rm -f secrets.json
 
-      - name: 산출물 업로드 (뉴스레터)
+      - name: 산출물 업로드 (뉴스레터 + 스냅샷)
         uses: actions/upload-artifact@v4
         with:
-          name: newsletter
-          path: newsletter/
+          name: dhandho-weekly
+          path: |
+            newsletter/
+            snapshots/
           if-no-files-found: warn
-
-      - name: 스냅샷 변경분 커밋 (주차 간 diff 유지용)
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add snapshots/
-          git diff --staged --quiet || git commit -m "chore: weekly snapshot $(date +%F)"
-          git push || echo "push 생략(권한/변경없음)"
+        # 주의: 저장소에 되돌려 커밋하지 않는다(로컬 push 와 충돌 방지).
+        # 결과물은 메일 + 이 artifact 로만 보관. 주간 신규/탈락 추적은 로컬 launchd 스냅샷이 담당.
