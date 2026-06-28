@@ -208,6 +208,33 @@ def diagnose(tickers, use_cache: bool = True) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("dhandho_score", ascending=False).reset_index(drop=True)
 
 
+def diagnose_published(tickers, published_rows, use_cache: bool = True) -> pd.DataFrame:
+    """
+    published(배포) 모드 건강검진: 라이브 조회 없이 퍼블리시된 데이터에서 종목을 찾아 진단.
+    공개 유니버스(S&P500+한국+일본)에 없는 종목은 data_ok=False.
+    """
+    idx = {str(r.get("ticker")): r for r in published_rows}
+    rows = []
+    for raw_t in tickers:
+        t = str(raw_t).strip()
+        if not t:
+            continue
+        key = t.upper()
+        rec = (idx.get(t) or idx.get(key)
+               or idx.get(t.split(".")[0]) or idx.get(key.split(".")[0]))
+        if rec is None:
+            row = build_row({"ticker": t, "market": "?", "name": t})
+            row["data_ok"] = False
+        else:
+            row = build_row(rec)
+            row["data_ok"] = True
+        row["input"] = t
+        rows.append(row)
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values("dhandho_score", ascending=False).reset_index(drop=True)
+
+
 def strength_label(score) -> str:
     """Dhandho 점수 → 설명 라벨(행동 권유 아님, 점수 구간 설명)."""
     if score is None or (isinstance(score, float) and pd.isna(score)):

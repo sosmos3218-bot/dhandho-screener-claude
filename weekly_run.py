@@ -2,46 +2,91 @@
 """
 주간 통합 러너 (launchd 가 매주 월 08:00 실행)
 ==============================================
-1) 전체 유니버스 스캔 → 스냅샷 + diff 저장        (snapshot.py)
-2) 최신 스냅샷 → 뉴스레터 HTML+MD 생성            (newsletter.py)
-3) secrets.json 이 있으면 SMTP 발송 (opt-in)
+1) 전체 유니버스(S&P500+한국+일본) 1회 스캔        (screening.build_universe)
+2) 그 결과로 스냅샷+diff 저장                       (snapshot.run(df=df))
+3) 배포용 데이터 내보내기 published/screening_data.json (publish.run(df=df))
+4) 뉴스레터 HTML+MD 생성 (+secrets 있으면 발송)      (newsletter)
+5) (선택) git add/commit/push — 환경변수 DHANDHO_AUTO_PUSH=1 일 때만
+         → 클라우드(Streamlit) 대시보드가 주간 자동 갱신됨
 
-launchd 는 bash 래퍼 없이 이 파일을 venv 파이썬으로 직접 실행한다
-(macOS TCC: 책임 프로세스를 파이썬으로 만들기 위함).
+스캔을 1회만 하고 스냅샷·배포가 공유하므로 yfinance 레이트리밋 부담이 줄어든다.
+launchd 는 bash 래퍼 없이 venv 파이썬으로 이 파일을 직접 실행한다(TCC: 책임 프로세스=파이썬).
 """
 import datetime as dt
+import os
+import subprocess
 import sys
 import traceback
 
 import newsletter
+import publish
+import screening
 import snapshot
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _auto_push():
+    """published/ · snapshots/ 변경분을 커밋·push (best-effort)."""
+    try:
+        subprocess.run(["git", "-C", BASE, "add", "published", "snapshots"], check=True)
+        # 변경 없으면 커밋 생략
+        if subprocess.run(["git", "-C", BASE, "diff", "--staged", "--quiet"]).returncode == 0:
+            print("ℹ️ 변경 없음 — push 생략", flush=True)
+            return
+        msg = f"data: weekly publish {dt.date.today().isoformat()}"
+        subprocess.run(["git", "-C", BASE, "commit", "-m", msg], check=True)
+        # 원격 변경 먼저 합치고 push (데이터 파일이라 충돌 거의 없음)
+        subprocess.run(["git", "-C", BASE, "pull", "--rebase", "--autostash"], check=False)
+        subprocess.run(["git", "-C", BASE, "push"], check=True)
+        print("📤 git push 완료 (클라우드 데이터 갱신)", flush=True)
+    except Exception:
+        print("⚠️ auto-push 실패(생성물은 정상 저장됨):", flush=True)
+        traceback.print_exc()
 
 
 def main():
     ts = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\n===== [{ts}] Dhandho 주간 파이프라인 시작 =====", flush=True)
 
-    # 1) 스냅샷 (전체 유니버스)
+    # 1) 전체 유니버스 1회 스캔
     try:
-        snapshot.run("ALL")
+        df = screening.build_universe("ALL", use_cache=False)
     except Exception:
-        print("❌ 스냅샷 단계 실패:", flush=True)
+        print("❌ 유니버스 스캔 실패:", flush=True)
         traceback.print_exc()
         return 1
-
-    # 2) 뉴스레터 생성
-    payload = newsletter.generate()
-    if payload is None:
-        print("❌ 뉴스레터 생성 실패 (스냅샷 없음)", flush=True)
+    if df is None or df.empty:
+        print("❌ 수집 데이터 없음 — 중단", flush=True)
         return 1
+    print(f"✅ 스캔 완료: {len(df)}종목 · 통과 {int(df['passes'].sum())}", flush=True)
 
-    # 3) 발송 (secrets.json 있을 때만 / --no-send 로 끌 수 있음)
-    if "--no-send" not in sys.argv:
+    # 2) 스냅샷 + diff
+    try:
+        snapshot.run("ALL", df=df)
+    except Exception:
+        print("⚠️ 스냅샷 단계 예외:", flush=True)
+        traceback.print_exc()
+
+    # 3) 배포용 데이터
+    try:
+        publish.run(df=df)
+    except Exception:
+        print("⚠️ 퍼블리시 단계 예외:", flush=True)
+        traceback.print_exc()
+
+    # 4) 뉴스레터 생성 (+발송)
+    payload = newsletter.generate()
+    if payload and "--no-send" not in sys.argv:
         try:
             newsletter.send(payload)
         except Exception:
-            print("⚠️ 발송 단계 예외 (생성물은 정상 저장됨):", flush=True)
+            print("⚠️ 발송 단계 예외(생성물은 정상 저장됨):", flush=True)
             traceback.print_exc()
+
+    # 5) 선택적 자동 push
+    if os.environ.get("DHANDHO_AUTO_PUSH") == "1":
+        _auto_push()
 
     print(f"===== [{ts}] 완료 =====", flush=True)
     return 0

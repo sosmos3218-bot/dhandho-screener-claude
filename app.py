@@ -21,6 +21,12 @@ import screening
 st.set_page_config(page_title="Dhandho 가치투자 스크리너", page_icon="🏰", layout="wide")
 
 SNAP_DIR = os.path.join(os.path.dirname(__file__), "snapshots")
+PUBLISHED_FILE = os.path.join(os.path.dirname(__file__), "published", "screening_data.json")
+
+# 배포(클라우드) 모드: 로컬이 내보낸 published/screening_data.json 만 읽어 렌더한다.
+#   클라우드에서 yfinance/pykrx 를 호출하지 않음 → 레이트리밋·한국차단·속도 문제 회피.
+#   활성화: 환경변수 DHANDHO_MODE=published  (Streamlit Cloud → App settings → Secrets/Env)
+USE_PUBLISHED = os.environ.get("DHANDHO_MODE", "").lower() == "published"
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -29,6 +35,12 @@ SNAP_DIR = os.path.join(os.path.dirname(__file__), "snapshots")
 @st.cache_data(ttl=43200, show_spinner="📡 시세·재무 수집 중 (yfinance/pykrx)...")
 def load_universe(market: str, limit: int) -> pd.DataFrame:
     return screening.build_universe(market, use_cache=True, limit=limit or None)
+
+
+@st.cache_data(ttl=3600)
+def load_published() -> dict:
+    with open(PUBLISHED_FILE, encoding="utf-8") as f:
+        return json.load(f)
 
 
 def fmt(v, suffix="", digits=1):
@@ -54,15 +66,22 @@ st.sidebar.title("⚙️ Dhandho 필터")
 
 market = st.sidebar.radio("시장", ["ALL", "US", "KR", "JP"], horizontal=True,
                           format_func=lambda m: {"ALL": "전체", "US": "미국", "KR": "한국", "JP": "일본"}[m])
-us_limit = st.sidebar.slider("스캔 종목 수 (미국·일본, 0=전체)", 0, len(config.US_UNIVERSE),
-                             min(20, len(config.US_UNIVERSE)),
-                             help="yfinance 레이트리밋 방어용. 미국·일본 유니버스에 적용. 처음엔 20개로 검증 후 늘리세요.")
 
-if st.sidebar.button("🔄 새로고침 (캐시 비우기)"):
-    st.cache_data.clear()
-    import data as _d
-    _d.clear_cache()
-    st.rerun()
+if USE_PUBLISHED:
+    us_limit = 0  # 미사용 (데이터는 published 파일에서 옴)
+    _pub_meta = load_published()
+    st.sidebar.success(
+        f"📦 **배포 모드** · 데이터 기준\n\n**{_pub_meta.get('generated_at', '?')}**\n\n"
+        "로컬에서 분석한 결과를 읽어 표시합니다. (클라우드에서 실시간 수집 안 함)")
+else:
+    us_limit = st.sidebar.slider("스캔 종목 수 (미국·일본, 0=전체)", 0, len(config.US_UNIVERSE),
+                                 min(20, len(config.US_UNIVERSE)),
+                                 help="yfinance 레이트리밋 방어용. 미국·일본 유니버스에 적용.")
+    if st.sidebar.button("🔄 새로고침 (캐시 비우기)"):
+        st.cache_data.clear()
+        import data as _d
+        _d.clear_cache()
+        st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**핵심 임계값** (config.py 기본)")
@@ -91,12 +110,21 @@ st.sidebar.caption(
 # ──────────────────────────────────────────────────────────────────────────
 # 데이터 로드 + 슬라이더 임계값으로 재스코어링
 # ──────────────────────────────────────────────────────────────────────────
-df_raw = load_universe(market, us_limit)
+if USE_PUBLISHED:
+    _pub = load_published()
+    published_rows = _pub["rows"]              # 건강검진 lookup 에도 사용
+    rows = published_rows if market == "ALL" else [r for r in published_rows if r.get("market") == market]
+    df_raw = pd.DataFrame(rows)
+else:
+    published_rows = None
+    df_raw = load_universe(market, us_limit)
+
 if df_raw.empty:
-    st.error("수집된 데이터가 없습니다. 사이드바에서 시장/종목 수를 조정하거나 새로고침하세요.")
+    st.error("표시할 데이터가 없습니다." +
+             ("" if USE_PUBLISHED else " 사이드바에서 시장/종목 수를 조정하거나 새로고침하세요."))
     st.stop()
 
-# 캐시된 raw 행을 현재 슬라이더 임계값으로 다시 스코어링
+# 원시 행을 현재 슬라이더 임계값으로 다시 스코어링 (네트워크 호출 없음 — 순수 계산)
 df = pd.DataFrame([screening.build_row(row) for row in df_raw.to_dict("records")])
 df = df.sort_values("dhandho_score", ascending=False).reset_index(drop=True)
 
@@ -104,9 +132,11 @@ df = df.sort_values("dhandho_score", ascending=False).reset_index(drop=True)
 # 헤더 & KPI
 # ──────────────────────────────────────────────────────────────────────────
 st.title("🏰 Dhandho 가치투자 스크리너")
+_src = (f"📦 배포 데이터 기준 {load_published().get('generated_at','?')} (로컬 분석본)"
+        if USE_PUBLISHED else "펀더멘털=yfinance LIVE / 한국 가격=pykrx")
 st.caption(
     f"모니시 파브라이 『단도(Dhandho)』 — \"Heads I win, tails I don't lose much\" · "
-    f"기준일 {dt.date.today()} · 종목 {len(df)}개 · 펀더멘털=yfinance LIVE / 한국 가격=pykrx"
+    f"종목 {len(df)}개 · {_src}"
 )
 
 passes = df[df["passes"]]
@@ -302,10 +332,15 @@ with tab5:
     txt = st.text_area("또는 티커 직접 입력 (줄바꿈/콤마 구분)",
                        value="AAPL\n005930\n7203.T\n033780\nKO", height=110)
     st.caption("티커 형식: 미국=AAPL · 한국=005930 (6자리) · 일본=7203.T (.T)")
+    if USE_PUBLISHED:
+        st.caption("📦 배포 모드: 공개 유니버스(S&P500·한국·일본)에 포함된 종목만 진단됩니다 "
+                   "(클라우드에서 실시간 조회 안 함).")
     go = st.button("🔍 건강검진 실행", type="primary")
 
     @st.cache_data(ttl=43200, show_spinner="보유종목 진단 중...")
     def run_diagnose(tickers_tuple):
+        if USE_PUBLISHED:
+            return screening.diagnose_published(list(tickers_tuple), published_rows)
         return screening.diagnose(list(tickers_tuple), use_cache=True)
 
     if go:

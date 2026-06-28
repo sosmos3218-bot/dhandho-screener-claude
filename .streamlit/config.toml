@@ -1,0 +1,13 @@
+# Streamlit 설정 (로컬·클라우드 공통)
+[theme]
+primaryColor = "#188038"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f8f3"
+textColor = "#1a1a1a"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

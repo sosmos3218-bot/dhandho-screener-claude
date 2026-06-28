@@ -35,10 +35,11 @@ def _clean(row: dict) -> dict:
     return out
 
 
-def run(market="ALL", limit=None):
+def run(market="ALL", limit=None, df=None):
     today = dt.date.today().isoformat()
     print(f"[{today}] Dhandho 스냅샷 시작 (market={market}, limit={limit}) ...")
-    df = screening.build_universe(market, use_cache=False, limit=limit)
+    if df is None:  # df 를 넘기면 재스캔 생략 (weekly_run 이 1회 스캔 공유)
+        df = screening.build_universe(market, use_cache=False, limit=limit)
     if df.empty:
         print("⚠️ 수집 데이터 없음 — 중단")
         return None

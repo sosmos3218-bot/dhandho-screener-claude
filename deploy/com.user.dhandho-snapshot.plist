@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 백업본: 실제 위치는 ~/Library/LaunchAgents/com.user.dhandho-snapshot.plist
+     새 PC 복구 시 이 파일을 거기로 복사 후 경로(/Users/yhso/...)를 본인 환경에 맞게 수정하고
+     launchctl bootstrap 으로 등록. (README "복구" 섹션 참고) -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.dhandho-snapshot</string>
+
+    <!-- bash 래퍼 없이 venv 파이썬을 직접 실행 (TCC 책임 프로세스 = 파이썬) -->
+    <!-- weekly_run.py = 1회 스캔 → 스냅샷 + 퍼블리시 + 뉴스레터(+발송) -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/yhso/Documents/Claude/dhandho-screener/.venv/bin/python3</string>
+        <string>/Users/yhso/Documents/Claude/dhandho-screener/weekly_run.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/yhso/Documents/Claude/dhandho-screener</string>
+
+    <!-- 매주 월요일 08:00 (장 시작 전) -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>8</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- 자동 git push 까지 원하면 아래 주석 해제 (published/snapshots 를 매주 푸시 → 클라우드 자동 갱신)
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>DHANDHO_AUTO_PUSH</key>
+        <string>1</string>
+    </dict>
+    -->
+
+    <key>StandardOutPath</key>
+    <string>/Users/yhso/Documents/Claude/dhandho-screener/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/yhso/Documents/Claude/dhandho-screener/logs/launchd.err.log</string>
+</dict>
+</plist>

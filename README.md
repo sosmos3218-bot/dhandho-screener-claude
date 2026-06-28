@@ -48,6 +48,61 @@ python3 -m venv .venv
 .venv/bin/python snapshot.py ALL
 ```
 
+## ☁️ 웹 배포 (로컬 분석 → 클라우드 표시)
+
+**핵심 설계**: 무거운 수집·분석은 **로컬(한국 IP)**에서 돌리고, 클라우드엔 그 **결과 파일만** 읽는
+가벼운 대시보드를 올린다. → 클라우드는 yfinance/pykrx 를 호출하지 않으므로
+**레이트리밋·한국 차단·속도 문제가 없다.**
+
+```
+[로컬] publish.py → published/screening_data.json → git push
+                                   │
+[클라우드] app.py (DHANDHO_MODE=published) ─ 파일만 읽어 렌더 (네트워크 호출 0)
+```
+
+1. **로컬에서 데이터 내보내기 → push**
+   ```bash
+   .venv/bin/python publish.py        # 전체 스캔 → published/screening_data.json
+   git add published/ && git commit -m "data: publish" && git push
+   ```
+2. **Streamlit Community Cloud 배포** (무료)
+   - [share.streamlit.io](https://share.streamlit.io) → GitHub 로그인 → New app
+   - Repo `sosmos3218-bot/dhandho-screener-claude` · Branch `main` · Main file `app.py`
+   - **Advanced settings → Secrets** 에 한 줄 추가 (이게 배포 모드 스위치):
+     ```toml
+     DHANDHO_MODE = "published"
+     ```
+   - Deploy → `https://....streamlit.app` 공개 URL 발급
+3. **주간 자동 갱신**: 로컬 `weekly_run.py`(launchd, 매주 월 08:00)가 스캔·스냅샷·뉴스레터·**publish**까지 하고,
+   환경변수 `DHANDHO_AUTO_PUSH=1` 이면 `published/`·`snapshots/` 를 자동 commit·push → 클라우드가 자동 최신화.
+   (자동 push 를 끄려면 변수 미설정 — 이때는 `publish.py` 후 직접 push)
+
+> ⚠️ **규제 주의**: 공개 서비스로 불특정 다수에 제공 시 한국에선 **유사투자자문업 신고** 대상이 될 수 있고,
+> 데이터 상업이용 라이선스도 확인이 필요합니다. 지인·테스터 공유 수준이면 "정보·교육용" 면책 유지로 리스크가 낮습니다.
+
+## 🔄 새 PC 복구 (로컬 PC 고장 시)
+
+GitHub에 코드·데이터가 다 있으므로 새 Mac에서 아래로 완전 복원된다.
+
+```bash
+git clone https://github.com/sosmos3218-bot/dhandho-screener-claude.git dhandho-screener
+cd dhandho-screener
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # ① 환경 재생성
+
+# ② (선택) 메일 발송 다시 켜기 — secrets 는 보안상 깃에 없음
+cp secrets.example.json secrets.json     # 편집: Gmail 앱비번 + 구독자
+
+# ③ (선택) 주간 자동 실행 다시 등록
+cp deploy/com.user.dhandho-snapshot.plist ~/Library/LaunchAgents/
+#   plist 안의 /Users/yhso/... 경로를 새 PC 경로로 수정 후:
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.dhandho-snapshot.plist
+#   + 시스템설정 > 전체 디스크 접근 권한에 Python 다시 허용 (TCC, 수동)
+```
+
+**깃에 없는(=재생성 필요) 항목**: `.venv`(=pip 재설치) · `secrets.json`(=재입력) ·
+launchd 등록·FDA 권한(=재설정). 코드/스냅샷/배포데이터는 모두 백업됨.
+→ **구독자 명단이 생기면 `secrets.json` 은 별도 안전한 곳에도 보관** (깃엔 못 올림).
+
 ## 파일 구성
 
 | 파일 | 역할 |
@@ -56,9 +111,12 @@ python3 -m venv .venv
 | `data.py` | LIVE 수집 (yfinance / pykrx) + 디스크 캐시 |
 | `screening.py` | Dhandho 지표·점수·플래그 계산, `build_universe()` |
 | `app.py` | Streamlit 대시보드 (필터·KPI·테이블·차트·레이더·스냅샷 diff) |
-| `snapshot.py` | 주간 스냅샷 + 신규/탈락 diff 생성 |
+| `snapshot.py` | 주간 스냅샷 + 신규/탈락 diff 생성 (`df` 주입 가능) |
+| `publish.py` | 분석 결과 → `published/screening_data.json` (클라우드용) |
 | `newsletter.py` | 스냅샷 → 뉴스레터 HTML+MD 생성 + opt-in SMTP 발송 |
-| `weekly_run.py` | **launchd 진입점** — 스냅샷 + 뉴스레터(+발송) 통합 실행 |
+| `weekly_run.py` | **launchd 진입점** — 1회 스캔 → 스냅샷+퍼블리시+뉴스레터(+발송, +선택 push) |
+| `app.py` (DHANDHO_MODE=published) | 클라우드 배포 모드 — published 파일만 읽어 렌더 |
+| `.streamlit/config.toml` · `published/` | 배포 설정 · 클라우드가 읽는 데이터 |
 | `secrets.example.json` | SMTP/구독자 설정 템플릿 (`secrets.json` 으로 복사해 사용) |
 | `snapshot_cron.sh` | 수동 실행용 bash 래퍼(로그 포함) |
 | `SKILL.md` | 주간 스케줄 자동 리포트 정의 |
