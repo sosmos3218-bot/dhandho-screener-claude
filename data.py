@@ -398,7 +398,9 @@ def fetch_auto(ticker: str, use_cache: bool = True) -> dict:
         if t in config.KR_WATCHLIST:
             return fetch_kr(t, config.KR_WATCHLIST[t], use_cache=use_cache)
         r = fetch_kr(t, {"name": t, "yf": f"{t}.KS", "moat_tag": "none"}, use_cache=use_cache)
-        if r.get("market_cap") is None and r.get("fcf") is None:  # KOSPI 실패 → KOSDAQ 재시도
+        # 시총 유무가 코스피/코스닥의 신뢰 신호. .KS 가 시총을 못 주면(코스닥) .KQ 로 재시도.
+        # (코스닥은 .KS 에서 재무제표 일부가 엉뚱한 값으로 채워질 수 있어 fcf 로 판단하면 안 됨)
+        if r.get("market_cap") is None:
             r = fetch_kr(t, {"name": t, "yf": f"{t}.KQ", "moat_tag": "none"}, use_cache=use_cache)
         return r
 
