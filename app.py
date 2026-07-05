@@ -201,9 +201,9 @@ with tab1:
         "이익수익률%": "{:.1f}", "하방방어": "{:.0f}",
     }
     sty = (show.style.format(fmt_map, na_rep="—")
-           .applymap(hl_pass, subset=["통과"])
-           .applymap(hl_score, subset=["Dhandho점수"])
-           .applymap(hl_moat, subset=["해자"]))
+           .map(hl_pass, subset=["통과"])
+           .map(hl_score, subset=["Dhandho점수"])
+           .map(hl_moat, subset=["해자"]))
     st.dataframe(sty, width="stretch", hide_index=True, height=560)
     st.caption(
         "🟩 통과 · Dhandho점수 75↑ 진녹/50↑ 노랑 · 🟦 해자(wide/narrow) · "

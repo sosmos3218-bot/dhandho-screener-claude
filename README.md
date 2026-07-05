@@ -1,3 +1,15 @@
+<!-- 아래 YAML 은 Hugging Face Spaces 설정용 (익명 공개 배포). GitHub 에선 무시됨. -->
+---
+title: Dhandho Screener
+emoji: 🏰
+colorFrom: green
+colorTo: gray
+sdk: streamlit
+sdk_version: "1.58.0"
+app_file: app.py
+pinned: false
+---
+
 # 🏰 Dhandho 가치투자 스크리너
 
 모니시 파브라이의 『단도(Dhandho)』 투자 철학 —
