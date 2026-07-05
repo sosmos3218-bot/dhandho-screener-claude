@@ -1,0 +1,16 @@
+name = "dhandho-screener-webhook"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# 시크릿은 wrangler.toml 에 넣지 않는다 (git에 커밋됨). 아래 명령으로 1회 등록:
+#   npx wrangler secret put BREVO_API_KEY
+#   npx wrangler secret put BREVO_PAID_LIST_ID
+#   npx wrangler secret put STRIPE_WEBHOOK_SECRET   # Stripe 사용 시
+#   npx wrangler secret put POLAR_WEBHOOK_SECRET    # Polar 사용 시 (whsec_...)
+
+# (권장) 웹훅 멱등성 — Polar webhook-id / Stripe event.id 중복 처리 방지
+# 1) npx wrangler kv namespace create WEBHOOK_IDEMPOTENCY
+# 2) 아래 id 에 출력된 id 를 넣고 주석 해제
+# [[kv_namespaces]]
+# binding = "WEBHOOK_IDEMPOTENCY"
+# id = "<KV_NAMESPACE_ID>"

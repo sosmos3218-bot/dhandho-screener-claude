@@ -15,3 +15,7 @@ __pycache__/
 newsletter/
 # snapshots/ 는 시계열 추적용이라 커밋해도 됨 (필요 시 아래 주석 해제)
 # snapshots/
+
+# Cloudflare Worker(webhook/) 로컬 빌드/의존성
+webhook/node_modules/
+webhook/.wrangler/

@@ -109,6 +109,9 @@ def build_row(raw: dict) -> dict:
     # 통과/경고 플래그
     r["flags"] = _flags(r)
     r["passes"] = _passes_filters(r)
+
+    # 보조 점수: codex(kospi_bubble_dashboard) 포인트 방식 (교차검증용, 통과 판정에는 미반영)
+    r.update(_codex_score(raw))
     return r
 
 
@@ -125,6 +128,96 @@ def _flags(r: dict) -> list:
        (r.get("earnings_yield") is not None and r["earnings_yield"] >= TH["earnings_yield_min"]):
         f.append("🎯저평가")
     return f
+
+
+def _codex_score(raw: dict) -> dict:
+    """
+    보조 점수: dhandho-korea-weekly-codex(kospi_bubble_dashboard) 방식의 포인트 합산 스코어.
+    기존 4-axis 가중합(dhandho_score)과 별개로, 다른 임계값/가중치 관점의 교차검증용으로 병기한다.
+      Cash 0~30(FCF Yield) + Debt 0~25(D/E·NetDebt/FCF·Cash/Debt) +
+      Moat 0~100×0.25(태그+영업이익률+매출총이익률+ROIC) + Valuation 0~20(FCF Yield·P/E·EV/EBITDA)
+      → 0~100, A(≥75)/B(≥60)/C(≥45)/D 밴드.
+    """
+    market_cap = raw.get("market_cap")
+    fcf = raw.get("fcf")
+    total_debt = raw.get("total_debt")
+    total_cash = raw.get("total_cash")
+    total_equity = raw.get("equity")
+    ebitda = raw.get("ebitda")
+    ev = raw.get("enterprise_value")
+    pe = raw.get("pe")
+    op_margin = raw.get("op_margin")      # %
+    gross_margin = raw.get("gross_margin")  # %
+    roic = raw.get("roic")                # %
+    moat_tag = raw.get("moat_tag", "none")
+
+    fcf_yield = (fcf / market_cap) if (fcf is not None and market_cap) else None
+    debt_equity = (total_debt / total_equity) if (total_debt is not None and total_equity) else None
+    net_debt = ((total_debt or 0) - (total_cash or 0)) if (total_debt is not None or total_cash is not None) else None
+    net_debt_fcf = (net_debt / fcf) if (net_debt is not None and fcf and fcf > 0) else None
+    cash_debt = (total_cash / total_debt) if (total_cash is not None and total_debt) else None
+    ev_to_ebitda = (ev / ebitda) if (ev is not None and ebitda) else None
+
+    cash_score = 0.0
+    if fcf_yield is not None:
+        if fcf_yield <= 0:
+            cash_score = 0.0
+        elif fcf_yield >= 0.15:
+            cash_score = 30.0
+        else:
+            cash_score = min(30.0, fcf_yield / 0.15 * 30)
+
+    debt_score = 10.0 if debt_equity is None and net_debt_fcf is None else 0.0
+    if debt_equity is not None:
+        if debt_equity <= 0.3:
+            debt_score += 12
+        elif debt_equity <= 0.8:
+            debt_score += 9
+        elif debt_equity <= 1.5:
+            debt_score += 5
+    if net_debt_fcf is not None:
+        if net_debt_fcf <= 2:
+            debt_score += 8
+        elif net_debt_fcf <= 4:
+            debt_score += 5
+        elif net_debt_fcf <= 6:
+            debt_score += 2
+    if cash_debt is not None:
+        if cash_debt >= 1:
+            debt_score += 5
+        elif cash_debt >= 0.5:
+            debt_score += 3
+    debt_score = min(25.0, debt_score)
+
+    moat_score = 25.0 if moat_tag and moat_tag != "none" else 15.0
+    moat_score += 15.0 if moat_tag == "wide" else (7.0 if moat_tag == "narrow" else 0.0)
+    if op_margin is not None:
+        om = op_margin / 100.0
+        moat_score += 12 if om >= 0.25 else 8 if om >= 0.15 else 3 if om >= 0.08 else 0
+    if gross_margin is not None:
+        gm = gross_margin / 100.0
+        moat_score += 10 if gm >= 0.55 else 7 if gm >= 0.40 else 3 if gm >= 0.25 else 0
+    if roic is not None:
+        rc = roic / 100.0
+        moat_score += 10 if rc >= 0.18 else 7 if rc >= 0.12 else 3 if rc >= 0.08 else 0
+    moat_score = max(0.0, min(100.0, moat_score))
+
+    valuation_score = 0.0
+    if fcf_yield is not None:
+        valuation_score += min(12.0, max(0.0, fcf_yield) / 0.12 * 12)
+    if pe is not None and pe > 0:
+        valuation_score += 4 if pe <= 10 else 3 if pe <= 15 else 1 if pe <= 25 else 0
+    if ev_to_ebitda is not None and ev_to_ebitda > 0:
+        valuation_score += 4 if ev_to_ebitda <= 8 else 3 if ev_to_ebitda <= 12 else 1 if ev_to_ebitda <= 18 else 0
+    valuation_score = min(20.0, valuation_score)
+
+    missing = [k for k in ("market_cap", "fcf", "total_debt", "equity") if raw.get(k) is None]
+    final_score = cash_score + debt_score + moat_score * 0.25 + valuation_score
+    if missing:
+        final_score -= min(12, len(missing) * 3)
+    final_score = max(0.0, min(100.0, final_score))
+    band = "A" if final_score >= 75 else "B" if final_score >= 60 else "C" if final_score >= 45 else "D"
+    return {"codex_score": round(final_score, 1), "codex_band": band}
 
 
 def _passes_filters(r: dict, strict: bool = False) -> bool:
@@ -249,6 +342,7 @@ def strength_label(score) -> str:
 # 화면/스냅샷용 컬럼 순서
 DISPLAY_COLS = [
     "market", "ticker", "name", "moat_tag", "dhandho_score",
+    "codex_score", "codex_band",
     "fcf_yield", "p_fcf", "debt_equity", "netdebt_ebitda",
     "roic", "gross_margin", "op_margin_std",
     "pe", "pb", "earnings_yield",

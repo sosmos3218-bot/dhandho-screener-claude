@@ -282,3 +282,70 @@ def all_jp():
 def moat_tag_jp(ticker: str) -> str:
     """일본 종목 해자 태그(없으면 none)."""
     return JP_MOAT_TAGS.get(ticker, "none")
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 4) 무료/유료 티어
+# ──────────────────────────────────────────────────────────────────────────
+FREE_TIER_LIMIT = 3   # 무료판에 공개하는 통과 종목 수
+FREE_TIER_SKIP = 3    # 무료에서 비공개하는 최상위 통과 종목 수 (4~6위만 미리보기)
+
+import json as _json
+from pathlib import Path as _Path
+
+_SECRETS_PATH = _Path(__file__).parent / "secrets.json"
+
+
+def _load_secrets() -> dict:
+    if not _SECRETS_PATH.exists():
+        return {}
+    try:
+        return _json.loads(_SECRETS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def paid_access_codes() -> list:
+    """secrets.json 의 paid_access_codes 목록(유료 구독자에게 공유하는 코드). 없으면 빈 리스트."""
+    return [str(c).strip() for c in _load_secrets().get("paid_access_codes", []) if str(c).strip()]
+
+
+def paid_subscribers() -> list:
+    """secrets.json 의 paid_subscribers 이메일 목록(뉴스레터 전체판 발송 대상, Brevo 미설정 시 폴백). 없으면 빈 리스트."""
+    return [str(e).strip() for e in _load_secrets().get("paid_subscribers", []) if str(e).strip()]
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 5) Brevo 연동 (Stripe 결제 웹훅이 채우는 유료 리스트) — env var 우선, secrets.json 폴백
+#    자세한 설정 방법: webhook/README.md, README.md "자동화(Stripe+Brevo)" 절 참고.
+# ──────────────────────────────────────────────────────────────────────────
+import os as _os
+
+
+def brevo_api_key() -> str:
+    return (_os.environ.get("BREVO_API_KEY", "").strip()
+            or str(_load_secrets().get("brevo_api_key", "")).strip())
+
+
+def brevo_paid_list_id() -> str:
+    return (_os.environ.get("BREVO_PAID_LIST_ID", "").strip()
+            or str(_load_secrets().get("brevo_paid_list_id", "")).strip())
+
+
+def brevo_waitlist_list_id() -> str:
+    """유료판 얼리버드 대기자 명단(결제 전, 관심 등록만)을 모으는 Brevo 리스트."""
+    return (_os.environ.get("BREVO_WAITLIST_LIST_ID", "").strip()
+            or str(_load_secrets().get("brevo_waitlist_list_id", "")).strip())
+
+
+def brevo_sender() -> tuple:
+    """(sender_email, sender_name). 별도 설정 없으면 뉴스레터 SMTP 발신자로 폴백."""
+    secrets = _load_secrets()
+    email = (_os.environ.get("BREVO_SENDER_EMAIL", "").strip()
+             or str(secrets.get("brevo_sender_email", "")).strip()
+             or str(secrets.get("smtp", {}).get("user", "")).strip())
+    name = (_os.environ.get("BREVO_SENDER_NAME", "").strip()
+            or str(secrets.get("brevo_sender_name", "")).strip()
+            or str(secrets.get("smtp", {}).get("from_name", "")).strip()
+            or "단도 위클리")
+    return email, name
