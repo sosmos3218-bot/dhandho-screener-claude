@@ -287,8 +287,8 @@ def moat_tag_jp(ticker: str) -> str:
 # ──────────────────────────────────────────────────────────────────────────
 # 4) 무료/유료 티어
 # ──────────────────────────────────────────────────────────────────────────
-FREE_TIER_LIMIT = 3   # 무료판에 공개하는 통과 종목 수
-FREE_TIER_SKIP = 3    # 무료에서 비공개하는 최상위 통과 종목 수 (4~6위만 미리보기)
+FREE_TIER_LIMIT = 5   # 무료판에 공개하는 통과 종목 수
+FREE_TIER_SKIP = 5    # 무료에서 비공개하는 최상위 통과 종목 수 (6~10위만 미리보기)
 
 import json as _json
 from pathlib import Path as _Path
@@ -306,8 +306,11 @@ def _load_secrets() -> dict:
 
 
 def paid_access_codes() -> list:
-    """secrets.json 의 paid_access_codes 목록(유료 구독자에게 공유하는 코드). 없으면 빈 리스트."""
-    return [str(c).strip() for c in _load_secrets().get("paid_access_codes", []) if str(c).strip()]
+    """유료판 백업 코드 목록. secrets.json(paid_access_codes) + PAID_ACCESS_CODES 환경변수(쉼표구분) 병합.
+    HF Spaces/Streamlit Cloud 처럼 secrets.json 이 없는 배포 환경에서는 환경변수로 등록한다."""
+    from_file = [str(c).strip() for c in _load_secrets().get("paid_access_codes", []) if str(c).strip()]
+    from_env = [c.strip() for c in _os.environ.get("PAID_ACCESS_CODES", "").split(",") if c.strip()]
+    return list(dict.fromkeys(from_file + from_env))
 
 
 def paid_subscribers() -> list:

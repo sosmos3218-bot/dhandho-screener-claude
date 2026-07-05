@@ -41,7 +41,8 @@ pinned: false
 - **결제 자동화(Stripe → Brevo)**: `webhook/`의 Cloudflare Worker가 Stripe Payment Link 결제 완료 웹훅을 받아
   구매자 이메일을 Brevo 유료 리스트에 자동으로 추가한다 — `secrets.json`을 구독자마다 수동으로 고칠 필요가 없다.
   설정 방법은 [`webhook/README.md`](webhook/README.md) 참고. 미설정 시에는 `secrets.json`의
-  `paid_access_codes`(대시보드 백업 코드)로 수동 운영할 수 있다.
+  `paid_access_codes`(대시보드 백업 코드)로 수동 운영할 수 있다. 클라우드 배포(HF Spaces/Streamlit Cloud)에는
+  `secrets.json`이 없으므로 `PAID_ACCESS_CODES` 환경변수(쉼표로 여러 개 구분)로 등록한다.
 - **뉴스레터**: `newsletter.py` 가 매주 무료판(`_free`)과 유료판(`_paid`) 두 벌을 생성한다. 무료판은 상위
   `FREE_TIER_LIMIT`개만 공개하고 나머지 개수를 안내, 유료판은 통과 종목 전체를 공개한다. 발송 시 Brevo가
   설정돼 있으면 유료판을 Brevo 유료 리스트로 자동 발송하고(신규 결제자도 자동 포함), 없으면

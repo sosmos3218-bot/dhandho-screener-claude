@@ -74,8 +74,7 @@ if USE_PUBLISHED:
     us_limit = 0  # 미사용 (데이터는 published 파일에서 옴)
     _pub_meta = load_published()
     st.sidebar.success(
-        f"📦 **배포 모드** · 데이터 기준\n\n**{_pub_meta.get('generated_at', '?')}**\n\n"
-        "로컬에서 분석한 결과를 읽어 표시합니다. (클라우드에서 실시간 수집 안 함)")
+        f"📦 **배포 모드** · 데이터 기준\n\n**{_pub_meta.get('generated_at', '?')}**")
 else:
     us_limit = st.sidebar.slider("스캔 종목 수 (미국·일본, 0=전체)", 0, len(config.US_UNIVERSE),
                                  min(20, len(config.US_UNIVERSE)),
@@ -85,30 +84,6 @@ else:
         import data as _d
         _d.clear_cache()
         st.rerun()
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("**핵심 임계값** (config.py 기본)")
-TH = config.THRESHOLDS
-fcf_min = st.sidebar.slider("① FCF Yield ≥ (%)", 0.0, 20.0, float(TH["fcf_yield_min"]), 0.5)
-de_max = st.sidebar.slider("② 부채/자본 ≤", 0.0, 3.0, float(TH["debt_equity_max"]), 0.1)
-roic_min = st.sidebar.slider("③ ROIC ≥ (%)", 0.0, 40.0, float(TH["roic_min"]), 1.0)
-pe_max = st.sidebar.slider("④ P/E ≤", 5.0, 50.0, float(TH["pe_max"]), 1.0)
-ey_min = st.sidebar.slider("④ Earnings Yield ≥ (%)", 0.0, 20.0, float(TH["earnings_yield_min"]), 0.5)
-
-# 슬라이더 값을 런타임 임계값에 반영 (점수/플래그 재계산 위해 빌드 전 주입)
-TH["fcf_yield_min"] = fcf_min
-TH["debt_equity_max"] = de_max
-TH["roic_min"] = roic_min
-TH["pe_max"] = pe_max
-TH["earnings_yield_min"] = ey_min
-
-st.sidebar.markdown("---")
-st.sidebar.caption(
-    "🟢 LIVE: 펀더멘털=yfinance(미국 S&P500 + 한국 .KS/.KQ — 시총·FCF·부채·ROIC·순이익 자동), "
-    "한국 가격=pykrx\n\n"
-    "🟡 수동(config.py): 해자(Moat) 정성 태그 + yfinance 결측 시 폴백값. "
-    "금융주는 모델 특성상 과소평가될 수 있음."
-)
 
 # ──────────────────────────────────────────────────────────────────────────
 # 무료/유료 티어
@@ -141,6 +116,30 @@ elif _paid_code:
     st.sidebar.error("코드가 올바르지 않습니다.")
 else:
     st.sidebar.caption(tier_display.free_preview_caption())
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("**핵심 임계값** (config.py 기본)")
+TH = config.THRESHOLDS
+fcf_min = st.sidebar.slider("① FCF Yield ≥ (%)", 0.0, 20.0, float(TH["fcf_yield_min"]), 0.5)
+de_max = st.sidebar.slider("② 부채/자본 ≤", 0.0, 3.0, float(TH["debt_equity_max"]), 0.1)
+roic_min = st.sidebar.slider("③ ROIC ≥ (%)", 0.0, 40.0, float(TH["roic_min"]), 1.0)
+pe_max = st.sidebar.slider("④ P/E ≤", 5.0, 50.0, float(TH["pe_max"]), 1.0)
+ey_min = st.sidebar.slider("④ Earnings Yield ≥ (%)", 0.0, 20.0, float(TH["earnings_yield_min"]), 0.5)
+
+# 슬라이더 값을 런타임 임계값에 반영 (점수/플래그 재계산 위해 빌드 전 주입)
+TH["fcf_yield_min"] = fcf_min
+TH["debt_equity_max"] = de_max
+TH["roic_min"] = roic_min
+TH["pe_max"] = pe_max
+TH["earnings_yield_min"] = ey_min
+
+st.sidebar.markdown("---")
+st.sidebar.caption(
+    "🟢 LIVE: 펀더멘털=yfinance(미국 S&P500 + 한국 .KS/.KQ — 시총·FCF·부채·ROIC·순이익 자동), "
+    "한국 가격=pykrx\n\n"
+    "🟡 수동(config.py): 해자(Moat) 정성 태그 + yfinance 결측 시 폴백값. "
+    "금융주는 모델 특성상 과소평가될 수 있음."
+)
 
 # ──────────────────────────────────────────────────────────────────────────
 # 데이터 로드 + 슬라이더 임계값으로 재스코어링

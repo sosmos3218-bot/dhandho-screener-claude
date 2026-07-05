@@ -6,7 +6,7 @@ import config
 
 
 def free_preview_list(sorted_passes: list) -> list:
-    """Dhandho 점수 내림차순 통과 종목에서 무료 미리보기 구간(기본 4~6위) 반환."""
+    """Dhandho 점수 내림차순 통과 종목에서 무료 미리보기 구간(config.FREE_TIER_SKIP~ 이하) 반환."""
     start = config.FREE_TIER_SKIP
     end = start + config.FREE_TIER_LIMIT
     return list(sorted_passes[start:end])
