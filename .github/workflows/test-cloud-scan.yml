@@ -1,0 +1,80 @@
+# 진단용 1회성 테스트: GitHub Actions(해외 클라우드 IP)에서 pykrx/yfinance 가 실제로
+# 막히는지 확인한다. 정기 스캔 파이프라인이 아니라 "이전 가능 여부 판단"용 — 수동 실행만 한다.
+#
+# 결과 확인: Actions 탭 → test-cloud-scan → 최근 실행 → 각 step 의 성공/실패와 로그 출력.
+# 실행 방법: Actions 탭 → test-cloud-scan → Run workflow.
+
+name: test-cloud-scan
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 파이썬 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치
+        run: pip install --quiet pykrx yfinance pandas
+
+      - name: pykrx — 한국 시세 조회 테스트 (삼성전자 005930)
+        run: |
+          python - <<'PY'
+          import datetime as dt
+          import sys
+          from pykrx import stock
+
+          end = dt.date.today()
+          start = end - dt.timedelta(days=12)
+          try:
+              df = stock.get_market_ohlcv_by_date(
+                  start.strftime("%Y%m%d"), end.strftime("%Y%m%d"), "005930"
+              )
+          except Exception as e:
+              print(f"❌ pykrx 예외 발생: {e}")
+              sys.exit(1)
+
+          if df is None or len(df) == 0:
+              print("❌ pykrx: 빈 결과 반환 (차단 또는 데이터 없음)")
+              sys.exit(1)
+
+          print(f"✅ pykrx 성공: {len(df)}행 수신, 최근 종가 {df['종가'].iloc[-1]:,}원 "
+                f"({df.index[-1].date()})")
+          PY
+
+      - name: yfinance — 한국(.KS) + 미국 종목 조회 테스트
+        run: |
+          python - <<'PY'
+          import sys
+          import yfinance as yf
+
+          ok = True
+          for ticker in ["005930.KS", "AAPL"]:
+              try:
+                  info = yf.Ticker(ticker).info or {}
+              except Exception as e:
+                  print(f"❌ yfinance {ticker} 예외: {e}")
+                  ok = False
+                  continue
+              mc = info.get("marketCap")
+              if not mc:
+                  print(f"❌ yfinance {ticker}: marketCap 없음 (레이트리밋/차단 가능성)")
+                  ok = False
+              else:
+                  print(f"✅ yfinance {ticker} 성공: marketCap={mc:,}")
+
+          sys.exit(0 if ok else 1)
+          PY
+
+      - name: 결과 요약
+        if: always()
+        run: |
+          echo "위 두 step 이 모두 ✅ 면 GitHub Actions 이전이 기술적으로 가능합니다."
+          echo "pykrx step 이 ❌ 면 한국 종목은 로컬(또는 국내 IP)에 남겨야 합니다."
