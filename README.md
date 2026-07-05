@@ -36,17 +36,20 @@ pinned: false
 
 ## 🔓 무료/유료 티어
 
-- **대시보드**: 무료판은 Dhandho 점수 상위 `config.FREE_TIER_LIMIT`(기본 5)개 종목만 표시. 사이드바에
-  **결제한 이메일**을 입력하면 Brevo 유료 리스트 조회로 자동 확인되어 전체 종목 + CSV 다운로드가 열린다.
-- **결제 자동화(Stripe → Brevo)**: `webhook/`의 Cloudflare Worker가 Stripe Payment Link 결제 완료 웹훅을 받아
+- **대시보드**: 무료판은 통과 종목 중 `config.FREE_TIER_SKIP+1`~`FREE_TIER_SKIP+FREE_TIER_LIMIT`위
+  (기본 6~10위, 상위 1~5위는 비공개)만 미리보기로 표시 — 최상위 후보를 가리는 것 자체가 유료 전환 유인이다.
+  사이드바에 **결제한 이메일**을 입력하면 Brevo 유료 리스트 조회로 자동 확인되어 전체 종목 + CSV 다운로드가 열린다.
+- **구독 신청 폼**(대시보드 상단): 무료 뉴스레터 구독과 유료판 얼리버드 대기(평생 할인)를 한 폼에서 선택해
+  신청할 수 있다(`waitlist.py`) — 각각 Brevo `BREVO_FREE_LIST_ID`/`BREVO_WAITLIST_LIST_ID` 리스트에 등록된다.
+- **결제 자동화(Polar/Stripe → Brevo)**: `webhook/`의 Cloudflare Worker가 결제 완료 웹훅을 받아
   구매자 이메일을 Brevo 유료 리스트에 자동으로 추가한다 — `secrets.json`을 구독자마다 수동으로 고칠 필요가 없다.
   설정 방법은 [`webhook/README.md`](webhook/README.md) 참고. 미설정 시에는 `secrets.json`의
   `paid_access_codes`(대시보드 백업 코드)로 수동 운영할 수 있다. 클라우드 배포(HF Spaces/Streamlit Cloud)에는
-  `secrets.json`이 없으므로 `PAID_ACCESS_CODES` 환경변수(쉼표로 여러 개 구분)로 등록한다.
-- **뉴스레터**: `newsletter.py` 가 매주 무료판(`_free`)과 유료판(`_paid`) 두 벌을 생성한다. 무료판은 상위
-  `FREE_TIER_LIMIT`개만 공개하고 나머지 개수를 안내, 유료판은 통과 종목 전체를 공개한다. 발송 시 Brevo가
-  설정돼 있으면 유료판을 Brevo 유료 리스트로 자동 발송하고(신규 결제자도 자동 포함), 없으면
-  `secrets.json`의 `subscribers`(무료판)/`paid_subscribers`(유료판, 수동 명단)로 SMTP 발송한다.
+  `secrets.json`이 없으므로 `PAID_ACCESS_CODES` 등은 동명의 환경변수(쉼표로 여러 개 구분)로 등록한다.
+- **뉴스레터**: `newsletter.py` 가 매주 무료판(`_free`)과 유료판(`_paid`) 두 벌을 생성한다. 무료판은 미리보기
+  구간만 공개하고 나머지 개수를 안내, 유료판은 통과 종목 전체를 공개한다. 발송 시 각 티어별로 Brevo가
+  설정돼 있으면 그 리스트로 자동 발송(신규 구독자·결제자도 자동 포함)하고, 없으면 `secrets.json`의
+  `subscribers`(무료판)/`paid_subscribers`(유료판) 수동 명단으로 SMTP 발송한다.
 
 ## 데이터 출처
 

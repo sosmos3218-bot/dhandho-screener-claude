@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
-"""Ensure Brevo waitlist exists; print list_id and status (created|reused)."""
+"""Ensure a named Brevo list exists; print list_id and status (created|reused).
+
+Usage: ensure_brevo_list.py <list name> <secrets.json key to write the id into>
+Example: ensure_brevo_list.py "Dhandho Screener - Free" brevo_free_list_id
+"""
 import json
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
 
-LIST_NAME = "Dhandho Screener - Waitlist"
 SECRETS_PATH = Path(__file__).resolve().parent.parent / "secrets.json"
 
 
 def main() -> int:
+    if len(sys.argv) != 3:
+        print(json.dumps({"error": "usage: ensure_brevo_list.py <list name> <secrets key>"}))
+        return 1
+    list_name, secrets_key = sys.argv[1], sys.argv[2]
+
     try:
         secrets = json.loads(SECRETS_PATH.read_text(encoding="utf-8"))
     except Exception as e:
@@ -46,17 +54,17 @@ def main() -> int:
         return 1
 
     def _finish(list_id: str, status: str) -> int:
-        secrets["brevo_waitlist_list_id"] = list_id
+        secrets[secrets_key] = list_id
         SECRETS_PATH.write_text(json.dumps(secrets, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(json.dumps({"list_id": list_id, "status": status, "error": None, "secrets_updated": True}))
         return 0
 
     for lst in data.get("lists") or []:
-        if (lst.get("name") or "").strip() == LIST_NAME:
+        if (lst.get("name") or "").strip() == list_name:
             return _finish(str(lst["id"]), "reused")
 
     # POST new list
-    payload = json.dumps({"name": LIST_NAME, "folderId": 1}).encode("utf-8")
+    payload = json.dumps({"name": list_name, "folderId": 1}).encode("utf-8")
     req = urllib.request.Request(
         "https://api.brevo.com/v3/contacts/lists",
         data=payload,

@@ -321,14 +321,13 @@ def generate():
     return result
 
 
-def _send_brevo_campaign(subject: str, html: str) -> bool:
-    """Brevo 리스트(BREVO_PAID_LIST_ID)로 캠페인 생성 + 즉시 발송.
-    구독자 명단은 Stripe 웹훅(webhook/)이 결제 시 자동으로 채우므로 수작업이 필요 없다."""
+def _send_brevo_campaign(subject: str, html: str, list_id: str) -> bool:
+    """Brevo 리스트로 캠페인 생성 + 즉시 발송.
+    구독자 명단은 웹훅(결제)이나 앱 내 구독 신청 폼이 채우므로 수작업이 필요 없다."""
     import urllib.error
     import urllib.request
 
     key = config.brevo_api_key()
-    list_id = config.brevo_paid_list_id()
     sender_email, sender_name = config.brevo_sender()
     if not key or not list_id or not sender_email:
         return False
@@ -363,23 +362,25 @@ def _send_brevo_campaign(subject: str, html: str) -> bool:
     except Exception as e:
         print(f"⚠️ [brevo] 발송 실패: {e}")
         return False
-    print(f"📧 [brevo] 유료판 발송 완료 (campaign={campaign_id})")
+    print(f"📧 [brevo] 발송 완료 (list={list_id}, campaign={campaign_id})")
     return True
 
 
 def send(payload):
-    """무료판은 secrets.json 의 SMTP 설정으로 subscribers 에게 발송.
-    유료판은 Brevo(BREVO_API_KEY/BREVO_PAID_LIST_ID)가 설정돼 있으면 그 리스트로 자동 발송하고,
-    없으면 secrets.json 의 paid_subscribers 로 SMTP 발송(수동 명단 폴백)."""
-    paid_sent_via_brevo = False
-    paid_data = payload.get("paid")
-    if paid_data and config.brevo_api_key() and config.brevo_paid_list_id():
-        paid_sent_via_brevo = _send_brevo_campaign(paid_data["subject"], paid_data["html"])
+    """Brevo(BREVO_API_KEY + 리스트 ID)가 설정된 티어는 그 리스트로 자동 발송하고,
+    없는 티어는 secrets.json 의 subscribers/paid_subscribers 로 SMTP 발송(수동 명단 폴백)."""
+    sent_via_brevo = {}
+    for tier, data in (("free", payload.get("free")), ("paid", payload.get("paid"))):
+        list_id = config.brevo_free_list_id() if tier == "free" else config.brevo_paid_list_id()
+        sent_via_brevo[tier] = bool(
+            data and config.brevo_api_key() and list_id
+            and _send_brevo_campaign(data["subject"], data["html"], list_id)
+        )
 
     if not os.path.exists(SECRETS):
-        print("ℹ️ secrets.json 이 없어 무료판/SMTP 폴백 발송을 건너뜁니다. "
+        print("ℹ️ secrets.json 이 없어 SMTP 폴백 발송을 건너뜁니다. "
               "발송하려면 secrets.example.json 을 참고해 secrets.json 을 만드세요.")
-        return paid_sent_via_brevo
+        return any(sent_via_brevo.values())
     import smtplib
     import ssl
     from email.mime.multipart import MIMEMultipart
@@ -388,12 +389,12 @@ def send(payload):
     cfg = json.load(open(SECRETS, encoding="utf-8"))
     smtp = cfg.get("smtp", {})
     tier_subscribers = {
-        "free": cfg.get("subscribers", []),
-        # Brevo가 이미 유료판을 발송했으면 SMTP 이중 발송을 피한다.
-        "paid": [] if paid_sent_via_brevo else cfg.get("paid_subscribers", []),
+        # Brevo가 이미 해당 티어를 발송했으면 SMTP 이중 발송을 피한다.
+        "free": [] if sent_via_brevo["free"] else cfg.get("subscribers", []),
+        "paid": [] if sent_via_brevo["paid"] else cfg.get("paid_subscribers", []),
     }
     if not any(tier_subscribers.values()):
-        if paid_sent_via_brevo:
+        if any(sent_via_brevo.values()):
             return True
         print("ℹ️ secrets.json 에 subscribers/paid_subscribers 가 비어있어 발송하지 않습니다.")
         return False

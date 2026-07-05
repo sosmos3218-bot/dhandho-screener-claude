@@ -205,23 +205,28 @@ else:
         st.info(f"무료 미리보기 구간({tier_display.free_preview_rank_label()})에 해당하는 통과 종목이 없습니다.")
 
 # ──────────────────────────────────────────────────────────────────────────
-# 유료판 얼리버드 대기자 등록 (결제 수단 붙이기 전 수요 검증용)
+# 구독 신청 (무료 뉴스레터 / 유료판 얼리버드 대기)
 # ──────────────────────────────────────────────────────────────────────────
 with st.container(border=True):
-    wl1, wl2 = st.columns([2.2, 1])
-    with wl1:
-        st.markdown("#### 🚀 유료판, 곧 출시됩니다")
+    sg1, sg2 = st.columns([2.2, 1])
+    with sg1:
+        st.markdown("#### 📬 뉴스레터 구독 신청")
         st.markdown(
-            f"지금은 무료판이 통과 종목 중 **{tier_display.free_preview_rank_label()}**만 미리보기로 보여드리지만, "
-            "유료판에서는 **조건 통과 종목 전체·CSV 다운로드·전주 대비 변화 추적**까지 제공할 예정입니다. "
-            "**지금 얼리버드로 등록하시면 정식 가격이 얼마로 정해지든 그 가격에서 평생 할인**을 적용해 드립니다."
+            f"**무료 구독**: 매주 스크리닝 결과 요약을 이메일로 받아보세요 (지금 통과 종목 중 "
+            f"**{tier_display.free_preview_rank_label()}** 미리보기 수준의 무료판 뉴스레터).\n\n"
+            "**유료판 얼리버드**: 아직 출시 전입니다. 유료판에서는 **조건 통과 종목 전체·CSV 다운로드·"
+            "전주 대비 변화 추적**까지 제공할 예정이며, **지금 등록하시면 정식 가격이 얼마로 정해지든 "
+            "그 가격에서 평생 할인**을 적용해 드립니다."
         )
-    with wl2:
-        with st.form("waitlist_form", clear_on_submit=True):
-            wl_email = st.text_input("이메일", placeholder="you@example.com", label_visibility="collapsed")
-            wl_submit = st.form_submit_button("🎟️ 얼리버드 대기자 등록", width="stretch")
-        if wl_submit:
-            ok, msg = waitlist.join_waitlist(wl_email)
+    with sg2:
+        with st.form("signup_form", clear_on_submit=True):
+            sg_intent = st.radio(
+                "구독 유형", ["무료 구독", "유료판 얼리버드 대기"], label_visibility="collapsed")
+            sg_email = st.text_input("이메일", placeholder="you@example.com", label_visibility="collapsed")
+            sg_submit = st.form_submit_button("📮 신청하기", width="stretch")
+        if sg_submit:
+            join_fn = waitlist.join_free if sg_intent == "무료 구독" else waitlist.join_waitlist
+            ok, msg = join_fn(sg_email)
             (st.success if ok else st.error)(msg)
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -259,7 +264,7 @@ with tab1:
             "downside_score", "passes"]
     show = view_df[cols].copy()
     show.columns = ["시장", "코드", "종목", "해자", "Dhandho점수",
-                    "Codex점수", "Codex밴드",
+                    "AI점수", "AI밴드",
                     "FCF수익률%", "P/FCF", "부채/자본", "순부채/EBITDA",
                     "ROIC%", "매출총이익%", "P/E", "P/B", "이익수익률%",
                     "하방방어", "통과"]
@@ -280,7 +285,7 @@ with tab1:
         return {"wide": "background-color:#d6eaf8", "narrow": "background-color:#ebf5fb"}.get(v, "")
 
     fmt_map = {
-        "Dhandho점수": "{:.1f}", "Codex점수": "{:.1f}",
+        "Dhandho점수": "{:.1f}", "AI점수": "{:.1f}",
         "FCF수익률%": "{:.1f}", "P/FCF": "{:.1f}",
         "부채/자본": "{:.2f}", "순부채/EBITDA": "{:.1f}", "ROIC%": "{:.1f}",
         "매출총이익%": "{:.1f}", "P/E": "{:.1f}", "P/B": "{:.1f}",
@@ -294,7 +299,7 @@ with tab1:
     st.caption(
         "🟩 통과 · Dhandho점수 75↑ 진녹/50↑ 노랑 · 🟦 해자(wide/narrow) · "
         "기본 통과 규칙: 4개 축 중 3개 이상 충족 + **부채 축 필수**. "
-        "Codex점수는 dhandho-korea-weekly-codex 방식의 포인트 합산 보조 지표(교차검증용, 통과 판정 미반영)."
+        "AI점수는 별도 산식(포인트 합산 방식)의 보조 지표(교차검증용, 통과 판정 미반영)."
     )
 
     if not IS_PAID:
@@ -375,7 +380,7 @@ with tab3:
     with cc2:
         st.markdown(f"### {row['name']} ({row['ticker']})")
         st.markdown(f"**Dhandho 종합 {row['dhandho_score']}** · 하방방어 {fmt(row['downside_score'],digits=0)} · 해자 `{row['moat_tag']}`")
-        st.caption(f"🧮 Codex 보조점수 {fmt(row.get('codex_score'))} (밴드 {row.get('codex_band','—')}) — 별도 산식 교차검증용, 통과 판정에는 미반영")
+        st.caption(f"🧮 AI 보조점수 {fmt(row.get('codex_score'))} (밴드 {row.get('codex_band','—')}) — 별도 산식 교차검증용, 통과 판정에는 미반영")
         st.markdown(f"- ① FCF Yield **{fmt(row['fcf_yield'],'%')}** · P/FCF {fmt(row['p_fcf'])}")
         st.markdown(f"- ② 부채/자본 **{fmt(row['debt_equity'],digits=2)}** · 순부채/EBITDA {fmt(row['netdebt_ebitda'])}")
         st.markdown(f"- ③ ROIC **{fmt(row['roic'],'%')}** · 매출총이익률 {fmt(row['gross_margin'],'%')} · 영업이익률 안정성(σ) {fmt(row['op_margin_std'])}")
