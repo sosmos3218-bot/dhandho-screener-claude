@@ -1,0 +1,630 @@
+{
+  "date": "2026-07-06",
+  "market": "ALL",
+  "total_scanned": 555,
+  "n_pass": 34,
+  "passes": [
+    {
+      "market": "JP",
+      "ticker": "4503.T",
+      "name": "ASTELLAS PHARMA",
+      "moat_tag": "narrow",
+      "dhandho_score": 100.0,
+      "fcf_yield": 10.78,
+      "debt_equity": 0.37,
+      "roic": 12.89,
+      "pe": 13.62,
+      "earnings_yield": 9.2,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "LULU",
+      "name": "lululemon athletica inc.",
+      "moat_tag": "none",
+      "dhandho_score": 100.0,
+      "fcf_yield": 8.43,
+      "debt_equity": 0.43,
+      "roic": 35.2,
+      "pe": 9.59,
+      "earnings_yield": 15.71,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "ACN",
+      "name": "Accenture plc",
+      "moat_tag": "narrow",
+      "dhandho_score": 100.0,
+      "fcf_yield": 14.38,
+      "debt_equity": 0.27,
+      "roic": 23.56,
+      "pe": 10.96,
+      "earnings_yield": 12.92,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "WRB",
+      "name": "W.R. Berkley Corporation",
+      "moat_tag": "narrow",
+      "dhandho_score": 99.9,
+      "fcf_yield": 12.01,
+      "debt_equity": 0.32,
+      "roic": 15.17,
+      "pe": 15.27,
+      "earnings_yield": 8.68,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "ACGL",
+      "name": "Arch Capital Group Ltd.",
+      "moat_tag": "none",
+      "dhandho_score": 99.9,
+      "fcf_yield": 14.78,
+      "debt_equity": 0.12,
+      "roic": 15.52,
+      "pe": 7.86,
+      "earnings_yield": 14.44,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "KR",
+      "ticker": "271560",
+      "name": "오리온",
+      "moat_tag": "wide",
+      "dhandho_score": 99.9,
+      "fcf_yield": 7.97,
+      "debt_equity": 0.01,
+      "roic": 11.64,
+      "pe": 14.06,
+      "earnings_yield": 14.11,
+      "downside_score": 99.9,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "HIG",
+      "name": "The Hartford Insurance Group, I",
+      "moat_tag": "none",
+      "dhandho_score": 99.7,
+      "fcf_yield": 14.83,
+      "debt_equity": 0.23,
+      "roic": 17.02,
+      "pe": 9.7,
+      "earnings_yield": 13.02,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "CTSH",
+      "name": "Cognizant Technology Solutions ",
+      "moat_tag": "none",
+      "dhandho_score": 98.8,
+      "fcf_yield": 9.61,
+      "debt_equity": 0.07,
+      "roic": 17.82,
+      "pe": 9.11,
+      "earnings_yield": 18.06,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "TRV",
+      "name": "The Travelers Companies, Inc.",
+      "moat_tag": "none",
+      "dhandho_score": 98.7,
+      "fcf_yield": 18.28,
+      "debt_equity": 0.28,
+      "roic": 15.4,
+      "pe": 10.22,
+      "earnings_yield": 10.97,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "TROW",
+      "name": "T. Rowe Price Group, Inc.",
+      "moat_tag": "none",
+      "dhandho_score": 98.4,
+      "fcf_yield": 7.4,
+      "debt_equity": 0.04,
+      "roic": 18.02,
+      "pe": 12.72,
+      "earnings_yield": 10.67,
+      "downside_score": 97.8,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "ALL",
+      "name": "Allstate Corporation (The)",
+      "moat_tag": "none",
+      "dhandho_score": 98.2,
+      "fcf_yield": 19.29,
+      "debt_equity": 0.26,
+      "roic": 29.66,
+      "pe": 5.54,
+      "earnings_yield": 19.79,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "CB",
+      "name": "Chubb Limited",
+      "moat_tag": "none",
+      "dhandho_score": 95.8,
+      "fcf_yield": 9.01,
+      "debt_equity": 0.34,
+      "roic": 11.99,
+      "pe": 12.77,
+      "earnings_yield": 8.43,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "PTC",
+      "name": "PTC Inc.",
+      "moat_tag": "none",
+      "dhandho_score": 95.1,
+      "fcf_yield": 6.85,
+      "debt_equity": 0.36,
+      "roic": 15.68,
+      "pe": 11.96,
+      "earnings_yield": 6.51,
+      "downside_score": 95.7,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "AFL",
+      "name": "AFLAC Incorporated",
+      "moat_tag": "none",
+      "dhandho_score": 95.0,
+      "fcf_yield": 8.0,
+      "debt_equity": 0.49,
+      "roic": 9.93,
+      "pe": 13.81,
+      "earnings_yield": 7.02,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "NEM",
+      "name": "Newmont Corporation",
+      "moat_tag": "none",
+      "dhandho_score": 95.0,
+      "fcf_yield": 9.46,
+      "debt_equity": 0.16,
+      "roic": 23.45,
+      "pe": 12.59,
+      "earnings_yield": 11.51,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "PGR",
+      "name": "Progressive Corporation (The)",
+      "moat_tag": "none",
+      "dhandho_score": 94.7,
+      "fcf_yield": 11.47,
+      "debt_equity": 0.28,
+      "roic": 30.78,
+      "pe": 11.81,
+      "earnings_yield": 10.23,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "CINF",
+      "name": "Cincinnati Financial Corporatio",
+      "moat_tag": "none",
+      "dhandho_score": 94.3,
+      "fcf_yield": 9.25,
+      "debt_equity": 0.06,
+      "roic": 14.33,
+      "pe": 10.98,
+      "earnings_yield": 10.34,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "JP",
+      "ticker": "5108.T",
+      "name": "BRIDGESTONE CORP",
+      "moat_tag": "narrow",
+      "dhandho_score": 93.2,
+      "fcf_yield": 8.27,
+      "debt_equity": 0.22,
+      "roic": 7.59,
+      "pe": 30.3,
+      "earnings_yield": 8.57,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "L",
+      "name": "Loews Corporation",
+      "moat_tag": "none",
+      "dhandho_score": 92.6,
+      "fcf_yield": 8.69,
+      "debt_equity": 0.48,
+      "roic": 7.63,
+      "pe": 14.81,
+      "earnings_yield": 9.97,
+      "downside_score": 98.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "AIG",
+      "name": "American International Group, I",
+      "moat_tag": "none",
+      "dhandho_score": 92.3,
+      "fcf_yield": 22.61,
+      "debt_equity": 0.22,
+      "roic": 6.71,
+      "pe": 13.98,
+      "earnings_yield": 10.26,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "AIZ",
+      "name": "Assurant, Inc.",
+      "moat_tag": "none",
+      "dhandho_score": 92.1,
+      "fcf_yield": 14.66,
+      "debt_equity": 0.38,
+      "roic": 11.71,
+      "pe": 14.32,
+      "earnings_yield": 8.47,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "NVR",
+      "name": "NVR, Inc.",
+      "moat_tag": "none",
+      "dhandho_score": 91.1,
+      "fcf_yield": 6.86,
+      "debt_equity": 0.28,
+      "roic": 29.63,
+      "pe": 16.47,
+      "earnings_yield": 10.14,
+      "downside_score": 95.7,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "DECK",
+      "name": "Deckers Outdoor Corporation",
+      "moat_tag": "none",
+      "dhandho_score": 90.7,
+      "fcf_yield": 5.91,
+      "debt_equity": 0.15,
+      "roic": 42.0,
+      "pe": 14.91,
+      "earnings_yield": 10.22,
+      "downside_score": 92.1,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "PHM",
+      "name": "PulteGroup, Inc.",
+      "moat_tag": "none",
+      "dhandho_score": 90.7,
+      "fcf_yield": 5.83,
+      "debt_equity": 0.19,
+      "roic": 15.19,
+      "pe": 12.91,
+      "earnings_yield": 11.15,
+      "downside_score": 91.8,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "AOS",
+      "name": "A.O. Smith Corporation",
+      "moat_tag": "none",
+      "dhandho_score": 90.6,
+      "fcf_yield": 5.73,
+      "debt_equity": 0.35,
+      "roic": 28.59,
+      "pe": 16.73,
+      "earnings_yield": 8.01,
+      "downside_score": 91.5,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "KR",
+      "ticker": "035420",
+      "name": "NAVER",
+      "moat_tag": "wide",
+      "dhandho_score": 89.7,
+      "fcf_yield": 4.99,
+      "debt_equity": 0.19,
+      "roic": 6.54,
+      "pe": 14.96,
+      "earnings_yield": 9.89,
+      "downside_score": 88.7,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "EG",
+      "name": "Everest Group, Ltd.",
+      "moat_tag": "none",
+      "dhandho_score": 81.9,
+      "fcf_yield": 27.17,
+      "debt_equity": 0.23,
+      "roic": 8.45,
+      "pe": 7.56,
+      "earnings_yield": 13.92,
+      "downside_score": 70.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "JP",
+      "ticker": "7974.T",
+      "name": "NINTENDO CO LTD",
+      "moat_tag": "wide",
+      "dhandho_score": 80.2,
+      "fcf_yield": 3.42,
+      "debt_equity": 0.0,
+      "roic": 15.2,
+      "pe": 19.28,
+      "earnings_yield": 9.46,
+      "downside_score": 82.8,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "RF",
+      "name": "Regions Financial Corporation",
+      "moat_tag": "none",
+      "dhandho_score": 75.4,
+      "fcf_yield": 8.32,
+      "debt_equity": 0.46,
+      "roic": 10.07,
+      "pe": 12.56,
+      "earnings_yield": 9.53,
+      "downside_score": 70.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "INCY",
+      "name": "Incyte Corporation",
+      "moat_tag": "none",
+      "dhandho_score": 70.4,
+      "fcf_yield": 2.39,
+      "debt_equity": 0.01,
+      "roic": 25.48,
+      "pe": 16.51,
+      "earnings_yield": 8.61,
+      "downside_score": 79.0,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "KR",
+      "ticker": "033780",
+      "name": "KT&G",
+      "moat_tag": "wide",
+      "dhandho_score": 67.7,
+      "fcf_yield": 1.16,
+      "debt_equity": 0.19,
+      "roic": 10.92,
+      "pe": 16.36,
+      "earnings_yield": 8.56,
+      "downside_score": 74.3,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "KR",
+      "ticker": "257720",
+      "name": "실리콘투",
+      "moat_tag": "narrow",
+      "dhandho_score": 66.3,
+      "fcf_yield": 1.4,
+      "debt_equity": 0.26,
+      "roic": 35.63,
+      "pe": 14.61,
+      "earnings_yield": 9.33,
+      "downside_score": 75.3,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "COF",
+      "name": "Capital One Financial Corporati",
+      "moat_tag": "none",
+      "dhandho_score": 63.2,
+      "fcf_yield": 20.69,
+      "debt_equity": 0.49,
+      "roic": 5.0,
+      "pe": 62.92,
+      "earnings_yield": 9.48,
+      "downside_score": 70.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "KR",
+      "ticker": "035250",
+      "name": "강원랜드",
+      "moat_tag": "wide",
+      "dhandho_score": 56.9,
+      "fcf_yield": 0.06,
+      "debt_equity": 0.01,
+      "roic": 7.8,
+      "pe": 9.21,
+      "earnings_yield": NaN,
+      "downside_score": 70.2,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    }
+  ]
+}
