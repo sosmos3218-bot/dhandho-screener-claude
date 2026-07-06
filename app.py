@@ -392,7 +392,7 @@ st.divider()
 st.header(i18n.t("tab5"))
 st.markdown("#### 🩺 내 보유종목 Dhandho 건강검진")
 st.info(
-    "ℹ️ **이 기능은 보유종목이 Dhandho 4축(현금흐름·부채·해자·저평가)에서 "
+    "**이 기능은 보유종목이 Dhandho 4축(현금흐름·부채·해자·저평가)에서 "
     "어떤 점수인지 보여주는 객관 지표 진단입니다.** "
     "특정 종목의 매수·매도·보유, '물타기' 또는 '손절' 여부를 권유하지 않습니다. "
     "점수의 해석과 모든 투자 판단은 전적으로 본인의 몫입니다.",
@@ -492,8 +492,8 @@ if quick_go:
 
 st.markdown("---")
 
-# 2) 여러 종목을 한 번에 진단하려면 (파일 업로드)
-with st.expander("여러 종목을 한 번에 진단하려면 (파일 업로드)"):
+# 2) 여러 종목을 한 번에 진단하려면?
+with st.expander("여러 종목을 한 번에 진단하려면?"):
     st.markdown("**1) 입력 양식 받기** (선택) — 받아서 보유종목을 채운 뒤 업로드하세요")
     dc1, dc2, _ = st.columns([1.2, 1.2, 3])
     dc1.download_button("⬇️ 엑셀 템플릿(.xlsx)", data=portfolio_io.template_xlsx_bytes(),
