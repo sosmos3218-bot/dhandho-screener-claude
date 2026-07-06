@@ -5,24 +5,6 @@
   "n_pass": 34,
   "passes": [
     {
-      "market": "JP",
-      "ticker": "4503.T",
-      "name": "ASTELLAS PHARMA",
-      "moat_tag": "narrow",
-      "dhandho_score": 100.0,
-      "fcf_yield": 10.77,
-      "debt_equity": 0.37,
-      "roic": 12.89,
-      "pe": 13.64,
-      "earnings_yield": 9.2,
-      "downside_score": 100.0,
-      "flags": [
-        "💰현금흐름",
-        "🛡️저부채",
-        "🎯저평가"
-      ]
-    },
-    {
       "market": "US",
       "ticker": "LULU",
       "name": "lululemon athletica inc.",
@@ -42,6 +24,24 @@
       ]
     },
     {
+      "market": "JP",
+      "ticker": "4503.T",
+      "name": "ASTELLAS PHARMA",
+      "moat_tag": "narrow",
+      "dhandho_score": 100.0,
+      "fcf_yield": 10.77,
+      "debt_equity": 0.37,
+      "roic": 12.89,
+      "pe": 13.63,
+      "earnings_yield": 9.2,
+      "downside_score": 100.0,
+      "flags": [
+        "💰현금흐름",
+        "🛡️저부채",
+        "🎯저평가"
+      ]
+    },
+    {
       "market": "US",
       "ticker": "ACN",
       "name": "Accenture plc",
@@ -49,9 +49,9 @@
       "dhandho_score": 100.0,
       "fcf_yield": 14.38,
       "debt_equity": 0.27,
-      "roic": 23.56,
+      "roic": 22.82,
       "pe": 10.96,
-      "earnings_yield": 12.92,
+      "earnings_yield": 12.52,
       "downside_score": 100.0,
       "flags": [
         "💰현금흐름",
@@ -107,8 +107,8 @@
       "fcf_yield": 7.93,
       "debt_equity": 0.01,
       "roic": 11.64,
-      "pe": 14.13,
-      "earnings_yield": 14.01,
+      "pe": 14.14,
+      "earnings_yield": 14.0,
       "downside_score": 99.7,
       "flags": [
         "🛡️저부채",
@@ -325,11 +325,11 @@
       "ticker": "5108.T",
       "name": "BRIDGESTONE CORP",
       "moat_tag": "narrow",
-      "dhandho_score": 93.2,
-      "fcf_yield": 8.27,
+      "dhandho_score": 93.3,
+      "fcf_yield": 8.28,
       "debt_equity": 0.22,
       "roic": 7.59,
-      "pe": 30.32,
+      "pe": 30.25,
       "earnings_yield": 8.57,
       "downside_score": 100.0,
       "flags": [
@@ -412,24 +412,6 @@
     },
     {
       "market": "US",
-      "ticker": "DECK",
-      "name": "Deckers Outdoor Corporation",
-      "moat_tag": "none",
-      "dhandho_score": 90.7,
-      "fcf_yield": 5.91,
-      "debt_equity": 0.15,
-      "roic": 42.0,
-      "pe": 14.91,
-      "earnings_yield": 10.22,
-      "downside_score": 92.1,
-      "flags": [
-        "🛡️저부채",
-        "🏰해자",
-        "🎯저평가"
-      ]
-    },
-    {
-      "market": "US",
       "ticker": "PHM",
       "name": "PulteGroup, Inc.",
       "moat_tag": "none",
@@ -440,6 +422,24 @@
       "pe": 12.91,
       "earnings_yield": 11.15,
       "downside_score": 91.8,
+      "flags": [
+        "🛡️저부채",
+        "🏰해자",
+        "🎯저평가"
+      ]
+    },
+    {
+      "market": "US",
+      "ticker": "DECK",
+      "name": "Deckers Outdoor Corporation",
+      "moat_tag": "none",
+      "dhandho_score": 90.7,
+      "fcf_yield": 5.91,
+      "debt_equity": 0.15,
+      "roic": 42.0,
+      "pe": 14.91,
+      "earnings_yield": 10.22,
+      "downside_score": 92.1,
       "flags": [
         "🛡️저부채",
         "🏰해자",
@@ -469,13 +469,13 @@
       "ticker": "035420",
       "name": "NAVER",
       "moat_tag": "wide",
-      "dhandho_score": 89.7,
-      "fcf_yield": 4.99,
+      "dhandho_score": 89.6,
+      "fcf_yield": 4.95,
       "debt_equity": 0.19,
       "roic": 6.54,
-      "pe": 14.95,
-      "earnings_yield": 9.9,
-      "downside_score": 88.7,
+      "pe": 15.06,
+      "earnings_yield": 9.82,
+      "downside_score": 88.6,
       "flags": [
         "🛡️저부채",
         "🏰해자",
@@ -506,12 +506,12 @@
       "name": "NINTENDO CO LTD",
       "moat_tag": "wide",
       "dhandho_score": 80.2,
-      "fcf_yield": 3.42,
+      "fcf_yield": 3.43,
       "debt_equity": 0.0,
       "roic": 15.2,
-      "pe": 19.28,
+      "pe": 19.26,
       "earnings_yield": 9.46,
-      "downside_score": 82.8,
+      "downside_score": 82.9,
       "flags": [
         "🛡️저부채",
         "🏰해자",
@@ -559,12 +559,12 @@
       "ticker": "033780",
       "name": "KT&G",
       "moat_tag": "wide",
-      "dhandho_score": 67.7,
-      "fcf_yield": 1.16,
+      "dhandho_score": 67.6,
+      "fcf_yield": 1.15,
       "debt_equity": 0.19,
       "roic": 10.92,
-      "pe": 16.38,
-      "earnings_yield": 8.55,
+      "pe": 16.44,
+      "earnings_yield": 8.52,
       "downside_score": 74.3,
       "flags": [
         "🛡️저부채",
@@ -617,7 +617,7 @@
       "fcf_yield": 0.06,
       "debt_equity": 0.01,
       "roic": 7.8,
-      "pe": 9.21,
+      "pe": 9.19,
       "earnings_yield": NaN,
       "downside_score": 70.2,
       "flags": [
