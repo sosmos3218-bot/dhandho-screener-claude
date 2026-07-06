@@ -174,6 +174,17 @@ _S = {
         "en": "You're on the early-bird waitlist — we'll notify you with a lifetime discount when the paid tier launches.",
         "ja": "アーリーバード待機リストに登録されました — 有料版リリース時に永久割引価格でご案内します。",
     },
+    "msg_success_universe_request": {
+        "ko": "요청이 접수되었습니다 — 검토 후 분석 대상에 추가되면 안내드립니다.",
+        "en": "Your request has been received — we'll let you know if it's added to our coverage.",
+        "ja": "リクエストを受け付けました — 分析対象に追加された場合はご案内します。",
+    },
+    "universe_request_prompt": {
+        "ko": "**'{ticker}'는 현재 분석 대상 유니버스에 없습니다.** 추가해달라고 요청하시겠어요?",
+        "en": "**'{ticker}' isn't in our current coverage universe.** Want to request that we add it?",
+        "ja": "**「{ticker}」は現在の分析対象ユニバースにありません。** 追加をリクエストしますか？",
+    },
+    "universe_request_button": {"ko": "📮 추가 요청하기", "en": "📮 Request addition", "ja": "📮 追加をリクエスト"},
     # ── 탭 ───────────────────────────────────────────────────────────────
     "tab1": {"ko": "📋 스크리닝 결과", "en": "📋 Screening results", "ja": "📋 スクリーニング結果"},
     "tab2": {"ko": "📊 분석 차트", "en": "📊 Charts", "ja": "📊 分析チャート"},

@@ -86,3 +86,56 @@ def join_waitlist(email: str) -> tuple:
     if not ok:
         return False, "error"
     return True, "success_waitlist"
+
+
+def _notify_admin_ticker_request(email: str, ticker: str) -> None:
+    """관리자(브레보 발신자 계정)에게 신규 종목 추가 요청 알림 메일 발송 — best-effort, 실패해도 사용자 흐름엔 영향 없음."""
+    key = config.brevo_api_key()
+    admin_email, sender_name = config.brevo_sender()
+    if not key or not admin_email:
+        return
+    payload = {
+        "sender": {"name": sender_name, "email": admin_email},
+        "to": [{"email": admin_email}],
+        "subject": f"[Dhandho Screener] 종목 추가 요청: {ticker}",
+        "htmlContent": (
+            f"<p>새 분석 대상 추가 요청이 접수됐습니다.</p>"
+            f"<p><b>티커:</b> {ticker}<br><b>요청자 이메일:</b> {email}</p>"
+        ),
+    }
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Accept": "application/json", "api-key": key},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req, timeout=8)
+    except Exception:
+        pass
+
+
+def request_ticker(email: str, ticker: str) -> tuple:
+    """분석 유니버스에 없는 종목 추가 요청. (True, "success_universe_request") 또는 (False, 에러코드).
+    성공 시 관리자에게 알림 메일도 best-effort 로 발송한다."""
+    email = (email or "").strip().lower()
+    ticker = (ticker or "").strip().upper()
+    if not is_valid_email(email):
+        return False, "invalid_email"
+    if not ticker:
+        return False, "error"
+
+    list_id = config.brevo_universe_list_id()
+    if not config.brevo_api_key() or not list_id:
+        return False, "not_configured"
+
+    ok = _add_to_brevo_list(email, list_id, {
+        "SOURCE": "dhandho-screener app universe request",
+        "REQUESTED_TICKER": ticker,
+        "JOINED_AT": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    })
+    if not ok:
+        return False, "error"
+
+    _notify_admin_ticker_request(email, ticker)
+    return True, "success_universe_request"

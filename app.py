@@ -209,6 +209,7 @@ else:
 _MSG_KEY = {
     "invalid_email": "msg_invalid_email", "not_configured": "msg_not_configured",
     "error": "msg_error", "success_free": "msg_success_free", "success_waitlist": "msg_success_waitlist",
+    "success_universe_request": "msg_success_universe_request",
 }
 
 with st.container(border=True):
@@ -471,6 +472,8 @@ def render_diagnosis_results(d, holdings=None):
         st.warning("조회 실패(티커/형식 확인): " +
                    ", ".join(bad["input"].astype(str).tolist()))
 
+    return bad
+
 
 # 1) 빠른 조회 — 티커 1개
 st.markdown("**빠른 조회** — 티커 1개만 입력해서 바로 진단합니다")
@@ -488,7 +491,25 @@ if quick_go:
     if not t:
         st.warning("티커를 입력해 주세요.")
     else:
-        render_diagnosis_results(run_diagnose((t,)))
+        st.session_state["quick_diagnose_ticker"] = t
+        st.session_state.pop("universe_req_result", None)
+
+quick_bad_ticker = st.session_state.get("quick_diagnose_ticker")
+if quick_bad_ticker:
+    bad = render_diagnosis_results(run_diagnose((quick_bad_ticker,)))
+    if bad is not None and not bad.empty:
+        st.markdown(i18n.t("universe_request_prompt", ticker=quick_bad_ticker))
+        rq1, rq2 = st.columns([3, 1])
+        req_email = rq1.text_input(
+            "universe_req_email", placeholder=i18n.t("signup_email_placeholder"),
+            label_visibility="collapsed", key="universe_req_email")
+        req_go = rq2.button(i18n.t("universe_request_button"), key="universe_req_btn")
+        if req_go:
+            ok, code = waitlist.request_ticker(req_email, quick_bad_ticker)
+            st.session_state["universe_req_result"] = (ok, code)
+        if "universe_req_result" in st.session_state:
+            ok, code = st.session_state["universe_req_result"]
+            (st.success if ok else st.error)(i18n.t(_MSG_KEY.get(code, "msg_error")))
 
 st.markdown("---")
 

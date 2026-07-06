@@ -347,6 +347,12 @@ def brevo_free_list_id() -> str:
             or str(_load_secrets().get("brevo_free_list_id", "")).strip())
 
 
+def brevo_universe_list_id() -> str:
+    """분석 유니버스에 없는 종목 추가 요청을 모으는 Brevo 리스트."""
+    return (_os.environ.get("BREVO_UNIVERSE_LIST_ID", "").strip()
+            or str(_load_secrets().get("brevo_universe_list_id", "")).strip())
+
+
 def brevo_sender() -> tuple:
     """(sender_email, sender_name). 별도 설정 없으면 뉴스레터 SMTP 발신자로 폴백."""
     secrets = _load_secrets()
