@@ -205,6 +205,55 @@ _S = {
     "col_ey": {"ko": "이익수익률%", "en": "Earnings yield%", "ja": "益回り%"},
     "col_downside": {"ko": "하방방어", "en": "Downside score", "ja": "下方防御"},
     "col_passes": {"ko": "통과", "en": "Pass", "ja": "通過"},
+    "col_detail": {"ko": "🔍 상세", "en": "🔍 Detail", "ja": "🔍 詳細"},
+    "detail_hint": {
+        "ko": "💡 표에서 행을 클릭하면 아래에 종목 상세(4축 레이더 차트 등)가 표시됩니다.",
+        "en": "💡 Click a row in the table to see stock detail (4-axis radar chart, etc.) below.",
+        "ja": "💡 表の行をクリックすると、下に銘柄詳細（4軸レーダーチャートなど）が表示されます。",
+    },
+    "detail_summary": {
+        "ko": "**Dhandho 종합 {score}** · 하방방어 {downside} · 해자 `{moat}`",
+        "en": "**Dhandho overall {score}** · Downside score {downside} · Moat `{moat}`",
+        "ja": "**Dhandho総合 {score}** · 下方防御 {downside} · モート `{moat}`",
+    },
+    "detail_ai": {
+        "ko": "🧮 AI 보조점수 {score} (밴드 {band}) — 별도 산식 교차검증용, 통과 판정에는 미반영",
+        "en": "🧮 AI secondary score {score} (band {band}) — cross-check from a different formula, not used for pass/fail",
+        "ja": "🧮 AI補助スコア {score}（バンド {band}） — 別方式によるクロスチェック用、通過判定には使用しません",
+    },
+    "detail_axis1": {
+        "ko": "① FCF Yield **{fcf}** · P/FCF {pfcf}",
+        "en": "① FCF Yield **{fcf}** · P/FCF {pfcf}",
+        "ja": "① FCF利回り **{fcf}** · P/FCF {pfcf}",
+    },
+    "detail_axis2": {
+        "ko": "② 부채/자본 **{de}** · 순부채/EBITDA {nde}",
+        "en": "② Debt/Equity **{de}** · NetDebt/EBITDA {nde}",
+        "ja": "② 負債/資本 **{de}** · 純負債/EBITDA {nde}",
+    },
+    "detail_axis3": {
+        "ko": "③ ROIC **{roic}** · 매출총이익률 {gm} · 영업이익률 안정성(σ) {std}",
+        "en": "③ ROIC **{roic}** · Gross margin {gm} · Operating margin stability (σ) {std}",
+        "ja": "③ ROIC **{roic}** · 売上総利益率 {gm} · 営業利益率安定性(σ) {std}",
+    },
+    "detail_axis4": {
+        "ko": "④ P/E **{pe}** · P/B {pb} · 이익수익률 {ey}",
+        "en": "④ P/E **{pe}** · P/B {pb} · Earnings yield {ey}",
+        "ja": "④ PER **{pe}** · PBR {pb} · 益回り {ey}",
+    },
+    "detail_flags": {"ko": "충족 조건: {flags}", "en": "Conditions met: {flags}", "ja": "充足条件：{flags}"},
+    "detail_flags_none": {"ko": "없음", "en": "None", "ja": "なし"},
+    "detail_kr_source": {
+        "ko": "🟡 한국 펀더멘털 INPUT — as_of {as_of} · {source}",
+        "en": "🟡 Korea fundamentals INPUT — as of {as_of} · {source}",
+        "ja": "🟡 韓国ファンダメンタルズ INPUT — 基準日 {as_of} · {source}",
+    },
+    "radar_axis1": {"ko": "현금흐름①", "en": "Cash Flow①", "ja": "キャッシュフロー①"},
+    "radar_axis2": {"ko": "저부채②", "en": "Low Debt②", "ja": "低負債②"},
+    "radar_axis3": {"ko": "해자③", "en": "Moat③", "ja": "モート③"},
+    "radar_axis4": {"ko": "저평가④", "en": "Undervalued④", "ja": "割安④"},
+    "radar_title": {
+        "ko": "{name} — 4축 점수", "en": "{name} — 4-axis score", "ja": "{name} — 4軸スコア"},
     "table_legend": {
         "ko": "🟩 통과 · Dhandho점수 75↑ 진녹/50↑ 노랑 · 🟦 해자(wide/narrow) · "
               "기본 통과 규칙: 4개 축 중 3개 이상 충족 + **부채 축 필수**. "
@@ -288,3 +337,16 @@ def free_preview_caption() -> str:
         "ja": f"無料プレビュー：通過銘柄のうちDhandho順**{rank_label()}**"
               f"（{config.FREE_TIER_LIMIT}銘柄）。**1〜{config.FREE_TIER_SKIP}位・全ランキング**は有料版限定。",
     }.get(lang())
+
+
+_FLAG_MAP = {
+    "💰현금흐름": {"en": "💰Cash Flow", "ja": "💰キャッシュフロー"},
+    "🛡️저부채": {"en": "🛡️Low Debt", "ja": "🛡️低負債"},
+    "🏰해자": {"en": "🏰Moat", "ja": "🏰モート"},
+    "🎯저평가": {"en": "🎯Undervalued", "ja": "🎯割安"},
+}
+
+
+def translate_flag(flag: str) -> str:
+    """screening.py 가 반환하는 한국어 고정 플래그 라벨을 현재 언어로 변환."""
+    return _FLAG_MAP.get(flag, {}).get(lang(), flag)
