@@ -1,36 +1,36 @@
-# 매주 미국(S&P 500) Dhandho 스크리닝 → 뉴스레터 생성 → SMTP 발송
+# 매주 전체(미국+한국+일본) Dhandho 스크리닝 → 스냅샷 → 퍼블리시 → 뉴스레터(무료/유료) 발송
 #
-# ⚠️ 이 워크플로는 GitHub 저장소에 push 되어야 동작합니다. (지금은 "준비된 파일")
-# ⚠️ 한국 종목(pykrx)은 GitHub 의 미국 IP 에서 KRX 가 막혀 자동수집이 불안정하므로
-#    여기서는 미국(US)만 스캔합니다. 한국까지 자동화하려면 국내 VPS/라즈베리파이를 쓰세요.
+# test-cloud-scan.yml 로 실측 검증됨(2026-07-05): 한국(pykrx) 11/11, 미국(yfinance) 40/40
+# 성공 — "GitHub IP에서 pykrx가 막힌다"던 이전 가정은 근거 없음으로 확인되어 전체 스캔으로 전환.
 #
 # [필요한 GitHub Secrets]  (Settings → Secrets and variables → Actions)
-#   SMTP_HOST      예: smtp.gmail.com
-#   SMTP_PORT      예: 465
-#   SMTP_USER      보내는 Gmail/네이버 주소
-#   SMTP_PASS      앱 비밀번호 (일반 비밀번호 아님)
-#   SMTP_FROMNAME  예: 단도 위클리
-#   SUBSCRIBERS    구독자 이메일 콤마(,)로 구분  예: a@x.com,b@y.com
-#   (SMTP_* 를 설정하지 않으면 발송은 건너뛰고 뉴스레터 파일만 생성/보관)
+#   BREVO_API_KEY        Brevo API 키
+#   BREVO_PAID_LIST_ID   유료판 리스트 ID
+#   BREVO_FREE_LIST_ID   무료판 리스트 ID
+#   BREVO_SENDER_EMAIL   뉴스레터 발신자 이메일
+#   BREVO_SENDER_NAME    뉴스레터 발신자 이름
+#   HF_TOKEN             Hugging Face 계정 settings/tokens 에서 발급(Write 권한, 이 Space 대상)
+#                         — 없으면 GitHub 에는 정상 반영되고 HF Space 반영만 건너뜀
 
-name: weekly-dhandho-newsletter
+name: weekly-dhandho-full-scan
 
 on:
   schedule:
     # cron 은 UTC 기준. 월요일 08:00 KST = 일요일 23:00 UTC.
     - cron: "0 23 * * 0"
-  workflow_dispatch: {}        # Actions 탭에서 수동 실행 버튼
+  workflow_dispatch: {}
 
 permissions:
-  contents: read               # 봇이 원격을 건드리지 않음 (로컬 push 와 충돌 방지)
+  contents: write
 
 concurrency:
-  group: weekly-dhandho
+  group: weekly-dhandho-full
   cancel-in-progress: false
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v4
@@ -40,46 +40,46 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: 의존성 설치 (미국 스캔에 필요한 최소만)
-        run: pip install --quiet pandas yfinance
+      - name: 의존성 설치
+        run: pip install --quiet -r requirements.txt
 
-      - name: secrets.json 생성 (GitHub Secrets → 파일)
-        if: ${{ env.SMTP_USER != '' }}
+      - name: 전체 스캔(US+KR+JP) → 스냅샷 → 퍼블리시 → 뉴스레터(Brevo 자동발송)
         env:
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          SMTP_FROMNAME: ${{ secrets.SMTP_FROMNAME }}
-          SUBSCRIBERS: ${{ secrets.SUBSCRIBERS }}
-        run: |
-          python - <<'PY'
-          import json, os
-          subs = [s.strip() for s in os.environ.get("SUBSCRIBERS", "").split(",") if s.strip()]
-          cfg = {
-              "smtp": {
-                  "host": os.environ.get("SMTP_HOST", "smtp.gmail.com"),
-                  "port": int(os.environ.get("SMTP_PORT", "465")),
-                  "user": os.environ["SMTP_USER"],
-                  "password": os.environ["SMTP_PASS"],
-                  "from_name": os.environ.get("SMTP_FROMNAME", "단도 위클리"),
-              },
-              "subscribers": subs,
-          }
-          json.dump(cfg, open("secrets.json", "w"), ensure_ascii=False)
-          print("secrets.json 생성됨, 구독자", len(subs), "명")
-          PY
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          BREVO_PAID_LIST_ID: ${{ secrets.BREVO_PAID_LIST_ID }}
+          BREVO_FREE_LIST_ID: ${{ secrets.BREVO_FREE_LIST_ID }}
+          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+          BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
+        run: python weekly_run.py
 
-      - name: 스냅샷(미국) → 뉴스레터 생성 → (secrets 있으면) 발송
-        run: |
-          python snapshot.py US
-          python newsletter.py --send
-
-      - name: secrets.json 정리 (저장소에 남기지 않음)
+      - name: published/snapshots 변경분 커밋 → GitHub(origin)
         if: always()
-        run: rm -f secrets.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add published snapshots
+          if git diff --staged --quiet; then
+            echo "변경 없음 — 커밋 생략"
+          else
+            git commit -m "data: weekly publish $(date -u +%Y-%m-%d)"
+            git push origin HEAD:main
+          fi
 
-      - name: 산출물 업로드 (뉴스레터 + 스냅샷)
+      - name: Hugging Face Space에도 반영
+        if: always()
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "ℹ️ HF_TOKEN 미설정 — HF Space push 생략 (GitHub 반영은 완료됨)"
+            exit 0
+          fi
+          git remote add hf "https://sosmos:${HF_TOKEN}@huggingface.co/spaces/sosmos/dhandho-screener" 2>/dev/null \
+            || git remote set-url hf "https://sosmos:${HF_TOKEN}@huggingface.co/spaces/sosmos/dhandho-screener"
+          git push hf HEAD:main
+
+      - name: 산출물 업로드 (뉴스레터 + 스냅샷, 디버깅용)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dhandho-weekly
@@ -87,5 +87,3 @@ jobs:
             newsletter/
             snapshots/
           if-no-files-found: warn
-        # 주의: 저장소에 되돌려 커밋하지 않는다(로컬 push 와 충돌 방지).
-        # 결과물은 메일 + 이 artifact 로만 보관. 주간 신규/탈락 추적은 로컬 launchd 스냅샷이 담당.
