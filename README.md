@@ -50,6 +50,19 @@ pinned: false
   구간만 공개하고 나머지 개수를 안내, 유료판은 통과 종목 전체를 공개한다. 발송 시 각 티어별로 Brevo가
   설정돼 있으면 그 리스트로 자동 발송(신규 구독자·결제자도 자동 포함)하고, 없으면 `secrets.json`의
   `subscribers`(무료판)/`paid_subscribers`(유료판) 수동 명단으로 SMTP 발송한다.
+- **유니버스 추가 요청**: 포트폴리오 건강검진에서 분석 대상에 없는 티커를 조회하면 이메일로 추가를
+  요청할 수 있다(`waitlist.request_ticker`, Brevo `brevo_universe_list_id` 리스트) — 접수 시 관리자
+  계정으로 알림 메일도 발송된다. 관리자는 아래 명령으로 요청을 검토·반영한다:
+  ```bash
+  .venv/bin/python scripts/process_universe_requests.py            # 리포트만 (dry-run)
+  .venv/bin/python scripts/process_universe_requests.py --apply    # config.py 반영 + Brevo 처리완료 표시 + 요청자 안내메일
+  ```
+  yfinance/pykrx로 실제 존재하는 종목인지 검증한 뒤에만 `US_UNIVERSE`/`KR_WATCHLIST`/`JP_UNIVERSE`에
+  추가한다. 한국 종목은 해자(moat_tag)를 자동 추정하지 않고 `"none"` + `TODO` 주석으로 남겨 사람이
+  나중에 검증하도록 한다. `--apply` 후에는 `git diff`로 확인하고 커밋/푸시할 것.
+  ⚠️ Brevo는 스키마에 없는 커스텀 속성을 조용히 무시한다 — 새 Brevo 계정으로 다시 설정할 때는
+  `scripts/ensure_brevo_attributes.py`를 한 번 실행해 `REQUESTED_TICKER`/`JOINED_AT`/`EARLYBIRD`/
+  `PROCESSED`/`VALIDATION` 속성 스키마를 먼저 만들어야 한다.
 
 ## 데이터 출처
 
