@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-주간 통합 러너 (launchd 가 매주 월 08:00 실행)
-==============================================
+주간 통합 러너 (GitHub Actions `.github/workflows/weekly.yml` 이 매주 월 08:00 KST 실행)
+=======================================================================================
 1) 전체 유니버스(S&P500+한국+일본) 1회 스캔        (screening.build_universe)
 2) 그 결과로 스냅샷+diff 저장                       (snapshot.run(df=df))
 3) 배포용 데이터 내보내기 published/screening_data.json (publish.run(df=df))
-4) 뉴스레터 HTML+MD 생성 (+secrets 있으면 발송)      (newsletter)
+4) 뉴스레터 HTML+MD 생성 (+secrets/Brevo 있으면 발송) (newsletter)
 5) (선택) git add/commit/push — 환경변수 DHANDHO_AUTO_PUSH=1 일 때만
          → 클라우드(Streamlit) 대시보드가 주간 자동 갱신됨
+         (GitHub Actions 에서는 이 변수 대신 workflow 자체가 커밋·push 를 담당)
 
 스캔을 1회만 하고 스냅샷·배포가 공유하므로 yfinance 레이트리밋 부담이 줄어든다.
-launchd 는 bash 래퍼 없이 venv 파이썬으로 이 파일을 직접 실행한다(TCC: 책임 프로세스=파이썬).
+2026-07-06 이전에는 로컬 launchd(bash 래퍼 없이 venv 파이썬 직접 실행)로 돌렸으나,
+GitHub Actions의 해외 IP에서도 pykrx/yfinance가 안 막힘을 실측 검증한 뒤 완전히 이전했다
+(로컬에서 수동 실행/디버깅 목적으로는 여전히 그대로 사용 가능).
 """
 import datetime as dt
 import os
