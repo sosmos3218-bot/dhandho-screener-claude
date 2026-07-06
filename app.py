@@ -15,13 +15,23 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import config
+import i18n
 import paid_gate
 import portfolio_io
 import screening
 import tier_display
 import waitlist
 
-st.set_page_config(page_title="Dhandho 가치투자 스크리너", page_icon="🏰", layout="wide")
+st.set_page_config(page_title="Dhandho Value Screener", page_icon="🏰", layout="wide")
+
+i18n.set_lang(st.session_state.get("lang_select", "ko"))  # 위젯 라벨 자체가 한 텀 지연되지 않도록 먼저 동기화
+_lang_choice = st.sidebar.selectbox(
+    i18n.t("lang_label"), options=list(i18n.LANGS.keys()),
+    format_func=lambda c: i18n.LANGS[c],
+    index=list(i18n.LANGS.keys()).index(i18n.lang()),
+    key="lang_select",
+)
+i18n.set_lang(_lang_choice)
 
 SNAP_DIR = os.path.join(os.path.dirname(__file__), "snapshots")
 PUBLISHED_FILE = os.path.join(os.path.dirname(__file__), "published", "screening_data.json")
@@ -65,21 +75,20 @@ def load_latest_snapshots():
 # ──────────────────────────────────────────────────────────────────────────
 # 사이드바
 # ──────────────────────────────────────────────────────────────────────────
-st.sidebar.title("⚙️ Dhandho 필터")
+st.sidebar.title(i18n.t("sidebar_title"))
 
-market = st.sidebar.radio("시장", ["ALL", "US", "KR", "JP"], horizontal=True,
-                          format_func=lambda m: {"ALL": "전체", "US": "미국", "KR": "한국", "JP": "일본"}[m])
+market = st.sidebar.radio(i18n.t("market_label"), ["ALL", "US", "KR", "JP"], horizontal=True,
+                          format_func=lambda m: i18n.t(f"market_{m}"))
 
 if USE_PUBLISHED:
     us_limit = 0  # 미사용 (데이터는 published 파일에서 옴)
     _pub_meta = load_published()
-    st.sidebar.success(
-        f"📦 **배포 모드** · 데이터 기준\n\n**{_pub_meta.get('generated_at', '?')}**")
+    st.sidebar.success(i18n.t("deploy_badge", date=_pub_meta.get('generated_at', '?')))
 else:
-    us_limit = st.sidebar.slider("스캔 종목 수 (미국·일본, 0=전체)", 0, len(config.US_UNIVERSE),
+    us_limit = st.sidebar.slider(i18n.t("scan_limit_label"), 0, len(config.US_UNIVERSE),
                                  min(20, len(config.US_UNIVERSE)),
-                                 help="yfinance 레이트리밋 방어용. 미국·일본 유니버스에 적용.")
-    if st.sidebar.button("🔄 새로고침 (캐시 비우기)"):
+                                 help=i18n.t("scan_limit_help"))
+    if st.sidebar.button(i18n.t("refresh_button")):
         st.cache_data.clear()
         import data as _d
         _d.clear_cache()
@@ -89,7 +98,7 @@ else:
 # 무료/유료 티어
 # ──────────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
-st.sidebar.markdown("**🔓 유료판**")
+st.sidebar.markdown(f"**{i18n.t('paid_tier_header')}**")
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -99,32 +108,31 @@ def _check_paid_email(email: str) -> bool:
 
 
 _paid_email = st.sidebar.text_input(
-    "유료판 이메일", help="Stripe 결제에 사용한 이메일을 입력하면 자동으로 확인됩니다.")
+    i18n.t("paid_email_label"), help=i18n.t("paid_email_help"))
 _paid_code = st.sidebar.text_input(
-    "또는 백업 코드", type="password",
-    help="이메일 자동 확인이 안 될 때 쓰는 수동 백업 코드입니다.")
+    i18n.t("paid_code_label"), type="password", help=i18n.t("paid_code_help"))
 
 _email_ok = bool(_paid_email) and _check_paid_email(_paid_email)
 _code_ok = bool(_paid_code) and _paid_code.strip() in config.paid_access_codes()
 IS_PAID = _email_ok or _code_ok
 
 if IS_PAID:
-    st.sidebar.success("✅ 유료판 잠금 해제됨 — 전체 종목 표시")
+    st.sidebar.success(i18n.t("paid_unlocked"))
 elif _paid_email:
-    st.sidebar.error("결제 확인이 안 됩니다. 결제 시 사용한 이메일인지 확인하거나 잠시 후 다시 시도하세요.")
+    st.sidebar.error(i18n.t("paid_email_fail"))
 elif _paid_code:
-    st.sidebar.error("코드가 올바르지 않습니다.")
+    st.sidebar.error(i18n.t("paid_code_fail"))
 else:
-    st.sidebar.caption(tier_display.free_preview_caption())
+    st.sidebar.caption(i18n.free_preview_caption())
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("**핵심 임계값** (config.py 기본)")
+st.sidebar.markdown(f"**{i18n.t('threshold_header')}**")
 TH = config.THRESHOLDS
-fcf_min = st.sidebar.slider("① FCF Yield ≥ (%)", 0.0, 20.0, float(TH["fcf_yield_min"]), 0.5)
-de_max = st.sidebar.slider("② 부채/자본 ≤", 0.0, 3.0, float(TH["debt_equity_max"]), 0.1)
-roic_min = st.sidebar.slider("③ ROIC ≥ (%)", 0.0, 40.0, float(TH["roic_min"]), 1.0)
-pe_max = st.sidebar.slider("④ P/E ≤", 5.0, 50.0, float(TH["pe_max"]), 1.0)
-ey_min = st.sidebar.slider("④ Earnings Yield ≥ (%)", 0.0, 20.0, float(TH["earnings_yield_min"]), 0.5)
+fcf_min = st.sidebar.slider(i18n.t("th_fcf"), 0.0, 20.0, float(TH["fcf_yield_min"]), 0.5)
+de_max = st.sidebar.slider(i18n.t("th_de"), 0.0, 3.0, float(TH["debt_equity_max"]), 0.1)
+roic_min = st.sidebar.slider(i18n.t("th_roic"), 0.0, 40.0, float(TH["roic_min"]), 1.0)
+pe_max = st.sidebar.slider(i18n.t("th_pe"), 5.0, 50.0, float(TH["pe_max"]), 1.0)
+ey_min = st.sidebar.slider(i18n.t("th_ey"), 0.0, 20.0, float(TH["earnings_yield_min"]), 0.5)
 
 # 슬라이더 값을 런타임 임계값에 반영 (점수/플래그 재계산 위해 빌드 전 주입)
 TH["fcf_yield_min"] = fcf_min
@@ -134,12 +142,7 @@ TH["pe_max"] = pe_max
 TH["earnings_yield_min"] = ey_min
 
 st.sidebar.markdown("---")
-st.sidebar.caption(
-    "🟢 LIVE: 펀더멘털=yfinance(미국 S&P500 + 한국 .KS/.KQ — 시총·FCF·부채·ROIC·순이익 자동), "
-    "한국 가격=pykrx\n\n"
-    "🟡 수동(config.py): 해자(Moat) 정성 태그 + yfinance 결측 시 폴백값. "
-    "금융주는 모델 특성상 과소평가될 수 있음."
-)
+st.sidebar.caption(i18n.t("live_caption"))
 
 # ──────────────────────────────────────────────────────────────────────────
 # 데이터 로드 + 슬라이더 임계값으로 재스코어링
@@ -154,8 +157,7 @@ else:
     df_raw = load_universe(market, us_limit)
 
 if df_raw.empty:
-    st.error("표시할 데이터가 없습니다." +
-             ("" if USE_PUBLISHED else " 사이드바에서 시장/종목 수를 조정하거나 새로고침하세요."))
+    st.error(i18n.t("no_data_error") + ("" if USE_PUBLISHED else i18n.t("no_data_hint")))
     st.stop()
 
 # 원시 행을 현재 슬라이더 임계값으로 다시 스코어링 (네트워크 호출 없음 — 순수 계산)
@@ -165,85 +167,79 @@ df = df.sort_values("dhandho_score", ascending=False).reset_index(drop=True)
 # ──────────────────────────────────────────────────────────────────────────
 # 헤더 & KPI
 # ──────────────────────────────────────────────────────────────────────────
-st.title("🏰 Dhandho 가치투자 스크리너")
-_src = (f"📦 배포 데이터 기준 {load_published().get('generated_at','?')} (로컬 분석본)"
-        if USE_PUBLISHED else "펀더멘털=yfinance LIVE / 한국 가격=pykrx")
-st.caption(
-    f"모니시 파브라이 『단도(Dhandho)』 — \"Heads I win, tails I don't lose much\" · "
-    f"종목 {len(df)}개 · {_src}"
-)
+st.title(i18n.t("app_title"))
+_src = (i18n.t("src_published", date=load_published().get('generated_at', '?'))
+        if USE_PUBLISHED else i18n.t("src_live"))
+st.caption(i18n.t("app_caption", n=len(df), src=_src))
 
 passes = df[df["passes"]]
 c1, c2, c3, c4, c5 = st.columns(5)
-c1.metric("✅ 조건 통과", f"{len(passes)}개", f"전체 {len(df)}개 중")
-c2.metric("평균 Dhandho 점수", fmt(df["dhandho_score"].mean()))
-c3.metric("평균 FCF Yield", fmt(df["fcf_yield"].dropna().mean(), "%"))
-c4.metric("평균 부채/자본", fmt(df["debt_equity"].dropna().mean(), digits=2))
-c5.metric("와이드 해자 종목", f"{(df['moat_tag'] == 'wide').sum()}개")
+c1.metric(i18n.t("kpi_pass"), i18n.t("unit_count", n=len(passes)), i18n.t("kpi_pass_delta", n=len(df)))
+c2.metric(i18n.t("kpi_avg_score"), fmt(df["dhandho_score"].mean()))
+c3.metric(i18n.t("kpi_avg_fcf"), fmt(df["fcf_yield"].dropna().mean(), "%"))
+c4.metric(i18n.t("kpi_avg_de"), fmt(df["debt_equity"].dropna().mean(), digits=2))
+c5.metric(i18n.t("kpi_wide_moat"), i18n.t("unit_count", n=(df['moat_tag'] == 'wide').sum()))
 
 if not len(passes):
-    st.info("현재 임계값을 모두 통과하는 종목이 없습니다. 시장이 비싸거나 필터가 엄격합니다 — 사이드바에서 완화해 보세요.")
+    st.info(i18n.t("no_pass_info"))
 elif IS_PAID:
     top = passes.iloc[0]
-    st.success(
-        f"🏆 최우선 후보: **{top['name']}** ({top['ticker']}) · "
-        f"Dhandho {top['dhandho_score']} · FCF Yield {fmt(top['fcf_yield'],'%')} · "
-        f"ROIC {fmt(top['roic'],'%')} · P/E {fmt(top['pe'])} · 해자 {top['moat_tag']}"
-    )
+    st.success(i18n.t(
+        "top_candidate_paid", name=top['name'], ticker=top['ticker'],
+        score=top['dhandho_score'], fcf=fmt(top['fcf_yield'], '%'),
+        roic=fmt(top['roic'], '%'), pe=fmt(top['pe']), moat=top['moat_tag'],
+    ))
 else:
     preview = tier_display.free_preview_list(passes.to_dict("records"))
     if preview:
         top = preview[0]
-        st.success(
-            f"🏆 무료 미리보기 후보 ({tier_display.free_preview_rank_label()} 중): "
-            f"**{top['name']}** ({top['ticker']}) · "
-            f"Dhandho {top['dhandho_score']} · FCF Yield {fmt(top['fcf_yield'],'%')} · "
-            f"ROIC {fmt(top['roic'],'%')} · P/E {fmt(top['pe'])} · 해자 {top['moat_tag']}"
-        )
-        st.caption(f"실제 1~{config.FREE_TIER_SKIP}위 최우선 후보는 유료판에서 공개됩니다.")
+        st.success(i18n.t(
+            "top_candidate_free", rank=i18n.rank_label(), name=top['name'], ticker=top['ticker'],
+            score=top['dhandho_score'], fcf=fmt(top['fcf_yield'], '%'),
+            roic=fmt(top['roic'], '%'), pe=fmt(top['pe']), moat=top['moat_tag'],
+        ))
+        st.caption(i18n.t("top_candidate_free_note", skip=config.FREE_TIER_SKIP))
     else:
-        st.info(f"무료 미리보기 구간({tier_display.free_preview_rank_label()})에 해당하는 통과 종목이 없습니다.")
+        st.info(i18n.t("no_preview_info", rank=i18n.rank_label()))
 
 # ──────────────────────────────────────────────────────────────────────────
 # 구독 신청 (무료 뉴스레터 / 유료판 얼리버드 대기)
 # ──────────────────────────────────────────────────────────────────────────
+_MSG_KEY = {
+    "invalid_email": "msg_invalid_email", "not_configured": "msg_not_configured",
+    "error": "msg_error", "success_free": "msg_success_free", "success_waitlist": "msg_success_waitlist",
+}
+
 with st.container(border=True):
     sg1, sg2 = st.columns([2.2, 1])
     with sg1:
-        st.markdown("#### 📬 뉴스레터 구독 신청")
-        st.markdown(
-            f"**무료 구독**: 매주 스크리닝 결과 요약을 이메일로 받아보세요 (지금 통과 종목 중 "
-            f"**{tier_display.free_preview_rank_label()}** 미리보기 수준의 무료판 뉴스레터).\n\n"
-            "**유료판 얼리버드**: 아직 출시 전입니다. 유료판에서는 **조건 통과 종목 전체·CSV 다운로드·"
-            "전주 대비 변화 추적**까지 제공할 예정이며, **지금 등록하시면 정식 가격이 얼마로 정해지든 "
-            "그 가격에서 평생 할인**을 적용해 드립니다."
-        )
+        st.markdown(f"#### {i18n.t('signup_header')}")
+        st.markdown(i18n.t("signup_body", rank=i18n.rank_label()))
     with sg2:
         with st.form("signup_form", clear_on_submit=True):
             sg_intent = st.radio(
-                "구독 유형", ["무료 구독", "유료판 얼리버드 대기"], label_visibility="collapsed")
-            sg_email = st.text_input("이메일", placeholder="you@example.com", label_visibility="collapsed")
-            sg_submit = st.form_submit_button("📮 신청하기", width="stretch")
+                "signup_intent", ["free", "waitlist"],
+                format_func=lambda v: i18n.t("signup_free_option" if v == "free" else "signup_waitlist_option"),
+                label_visibility="collapsed")
+            sg_email = st.text_input(
+                "email", placeholder=i18n.t("signup_email_placeholder"), label_visibility="collapsed")
+            sg_submit = st.form_submit_button(i18n.t("signup_submit_button"), width="stretch")
         if sg_submit:
-            join_fn = waitlist.join_free if sg_intent == "무료 구독" else waitlist.join_waitlist
-            ok, msg = join_fn(sg_email)
-            (st.success if ok else st.error)(msg)
+            join_fn = waitlist.join_free if sg_intent == "free" else waitlist.join_waitlist
+            ok, code = join_fn(sg_email)
+            (st.success if ok else st.error)(i18n.t(_MSG_KEY[code]))
 
 # ──────────────────────────────────────────────────────────────────────────
 # 탭 구성
 # ──────────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["📋 스크리닝 결과", "📊 분석 차트", "🔬 종목 상세",
-     "🔄 신규/탈락(주간 스냅샷)", "🩺 포트폴리오 건강검진"])
+    [i18n.t("tab1"), i18n.t("tab2"), i18n.t("tab3"), i18n.t("tab4"), i18n.t("tab5")])
 
 # ── 탭 1: 결과 테이블 ──────────────────────────────────────────────────────
 with tab1:
-    only_pass = st.checkbox("조건 통과 종목만 보기", value=False, disabled=not IS_PAID)
+    only_pass = st.checkbox(i18n.t("only_pass_checkbox"), value=False, disabled=not IS_PAID)
     if not IS_PAID:
-        st.caption(
-            f"무료판은 통과 종목 미리보기({tier_display.free_preview_rank_label()})만 제공됩니다. "
-            "전체 유니버스는 유료판에서 열립니다."
-        )
+        st.caption(i18n.t("free_preview_notice", rank=i18n.rank_label()))
     pass_df = df[df["passes"]].sort_values("dhandho_score", ascending=False)
     full_df = pass_df if only_pass else df.sort_values("dhandho_score", ascending=False)
 
@@ -263,58 +259,58 @@ with tab1:
             "roic", "gross_margin", "pe", "pb", "earnings_yield",
             "downside_score", "passes"]
     show = view_df[cols].copy()
-    show.columns = ["시장", "코드", "종목", "해자", "Dhandho점수",
-                    "AI점수", "AI밴드",
-                    "FCF수익률%", "P/FCF", "부채/자본", "순부채/EBITDA",
-                    "ROIC%", "매출총이익%", "P/E", "P/B", "이익수익률%",
-                    "하방방어", "통과"]
+    col_labels = [i18n.t(k) for k in (
+        "col_market", "col_ticker", "col_name", "col_moat", "col_dhandho",
+        "col_ai_score", "col_ai_band", "col_fcf", "col_pfcf", "col_de", "col_ndebitda",
+        "col_roic", "col_gm", "col_pe", "col_pb", "col_ey", "col_downside", "col_passes",
+    )]
+    show.columns = col_labels
+    C = dict(zip(
+        ("market", "ticker", "name", "moat", "dhandho", "ai_score", "ai_band", "fcf", "pfcf",
+         "de", "ndebitda", "roic", "gm", "pe", "pb", "ey", "downside", "passes"),
+        col_labels,
+    ))
 
+    # 반투명 오버레이 색상 사용 — 라이트/다크 테마 어느 배경 위에서도 자연스럽게 얹힌다.
     def hl_pass(v):
-        return "background-color:#d5f5e3;font-weight:bold" if v else ""
+        return "background-color:rgba(46,204,113,0.28);font-weight:bold" if v else ""
 
     def hl_score(v):
         if pd.isna(v):
             return ""
         if v >= 75:
-            return "background-color:#d5f5e3"
+            return "background-color:rgba(46,204,113,0.28)"
         if v >= 50:
-            return "background-color:#fcf3cf"
+            return "background-color:rgba(241,196,15,0.28)"
         return ""
 
     def hl_moat(v):
-        return {"wide": "background-color:#d6eaf8", "narrow": "background-color:#ebf5fb"}.get(v, "")
+        return {"wide": "background-color:rgba(52,152,219,0.30)",
+                "narrow": "background-color:rgba(52,152,219,0.15)"}.get(v, "")
 
     fmt_map = {
-        "Dhandho점수": "{:.1f}", "AI점수": "{:.1f}",
-        "FCF수익률%": "{:.1f}", "P/FCF": "{:.1f}",
-        "부채/자본": "{:.2f}", "순부채/EBITDA": "{:.1f}", "ROIC%": "{:.1f}",
-        "매출총이익%": "{:.1f}", "P/E": "{:.1f}", "P/B": "{:.1f}",
-        "이익수익률%": "{:.1f}", "하방방어": "{:.0f}",
+        C["dhandho"]: "{:.1f}", C["ai_score"]: "{:.1f}",
+        C["fcf"]: "{:.1f}", C["pfcf"]: "{:.1f}",
+        C["de"]: "{:.2f}", C["ndebitda"]: "{:.1f}", C["roic"]: "{:.1f}",
+        C["gm"]: "{:.1f}", C["pe"]: "{:.1f}", C["pb"]: "{:.1f}",
+        C["ey"]: "{:.1f}", C["downside"]: "{:.0f}",
     }
     sty = (show.style.format(fmt_map, na_rep="—")
-           .map(hl_pass, subset=["통과"])
-           .map(hl_score, subset=["Dhandho점수"])
-           .map(hl_moat, subset=["해자"]))
+           .map(hl_pass, subset=[C["passes"]])
+           .map(hl_score, subset=[C["dhandho"]])
+           .map(hl_moat, subset=[C["moat"]]))
     st.dataframe(sty, width="stretch", hide_index=True, height=560)
-    st.caption(
-        "🟩 통과 · Dhandho점수 75↑ 진녹/50↑ 노랑 · 🟦 해자(wide/narrow) · "
-        "기본 통과 규칙: 4개 축 중 3개 이상 충족 + **부채 축 필수**. "
-        "AI점수는 별도 산식(포인트 합산 방식)의 보조 지표(교차검증용, 통과 판정 미반영)."
-    )
+    st.caption(i18n.t("table_legend"))
 
     if not IS_PAID:
         st.info(
-            f"🔒 {tier_display.free_preview_caption()} "
-            + (
-                f"나머지 **{hidden_count}개** 통과 종목·전체 순위·CSV는 유료판(사이드바 이메일/백업 코드)에서 열립니다."
-                if hidden_count
-                else "유료판에서 전체 순위·CSV를 열 수 있습니다."
-            )
+            f"🔒 {i18n.free_preview_caption()} "
+            + (i18n.t("lock_hidden", n=hidden_count) if hidden_count else i18n.t("lock_generic"))
         )
 
     if IS_PAID:
         st.download_button(
-            "⬇️ 전체 결과 CSV 다운로드 (유료판)",
+            i18n.t("csv_button"),
             data=full_df[cols].to_csv(index=False).encode("utf-8-sig"),
             file_name=f"dhandho_screening_{dt.date.today().isoformat()}.csv",
             mime="text/csv",
@@ -540,8 +536,4 @@ with tab5:
                "'물타기/손절' 판단을 대신하지 않습니다. 데이터는 yfinance(지연·오류 가능) 기준입니다.")
 
 st.markdown("---")
-st.caption(
-    "⚠️ 본 대시보드는 정보 제공용이며 투자 권유가 아닙니다. 해자(Moat)는 본질적으로 정성 판단이며 "
-    "여기서는 ROIC·마진 안정성·수동 태그로 근사한 보조 지표입니다. 펀더멘털은 yfinance(미국·한국·일본) "
-    "자동 수집값으로 지연·오류가 있을 수 있으니, 실제 판단 전 DART·FnGuide·증권사 리포트로 반드시 검증하세요."
-)
+st.caption(i18n.t("footer_disclaimer"))

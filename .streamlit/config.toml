@@ -1,10 +1,10 @@
 # Streamlit 설정 (로컬·클라우드 공통)
-[theme]
-primaryColor = "#188038"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f1f8f3"
-textColor = "#1a1a1a"
-font = "sans serif"
+#
+# [theme] 섹션을 아예 두지 않는다 — primaryColor 하나만 지정해도 Streamlit이
+# "커스텀 테마 제공됨"으로 간주해 기본값이 라이트로 고정되고, 우측 상단 메뉴의
+# "Use system setting"(기기 다크/라이트 설정 자동 추종)이 기본에서 빠진다(실측 확인됨).
+# [theme] 섹션이 전혀 없어야 최초 접속 시에도 기기 설정을 자동으로 따라간다.
+# 사용자는 여전히 메뉴(⋮ → Settings)에서 Light/Dark/시스템 설정 중 직접 고를 수 있다.
 
 [server]
 headless = true
