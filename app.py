@@ -26,7 +26,8 @@ st.set_page_config(page_title="Dhandho Value Screener", page_icon="🏰", layout
 
 i18n.set_lang(st.session_state.get("lang_select", "ko"))  # 위젯 라벨 자체가 한 텀 지연되지 않도록 먼저 동기화
 _lang_choice = st.sidebar.selectbox(
-    i18n.t("lang_label"), options=list(i18n.LANGS.keys()),
+    "🌐 Language / 언어 / 言語",  # 언어 중립적 라벨 — 방문자가 자기 언어를 못 읽어도 알아볼 수 있게 항상 3개국어 병기
+    options=list(i18n.LANGS.keys()),
     format_func=lambda c: i18n.LANGS[c],
     index=list(i18n.LANGS.keys()).index(i18n.lang()),
     key="lang_select",

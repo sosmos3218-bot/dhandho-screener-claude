@@ -14,7 +14,6 @@ LANGS = {"ko": "한국어", "en": "English", "ja": "日本語"}
 _S = {
     # ── 사이드바 ──────────────────────────────────────────────────────────
     "sidebar_title": {"ko": "⚙️ Dhandho 필터", "en": "⚙️ Dhandho Filters", "ja": "⚙️ Dhandhoフィルター"},
-    "lang_label": {"ko": "언어", "en": "Language", "ja": "言語"},
     "market_label": {"ko": "시장", "en": "Market", "ja": "市場"},
     "market_ALL": {"ko": "전체", "en": "All", "ja": "全市場"},
     "market_US": {"ko": "미국", "en": "US", "ja": "米国"},
