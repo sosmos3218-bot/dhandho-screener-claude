@@ -132,7 +132,7 @@ def build_markdown(latest, prev, tier: str = "free"):
 
     L += ["", f"## ✅ 현재 통과 종목 {list_title} (Dhandho 순)", ""]
     if tier == "free":
-        L.append(f"_{tier_display.free_preview_caption()}_", "")
+        L += [f"_{tier_display.free_preview_caption()}_", ""]
     L += ["| # | 종목 | 시장 | Dhandho | FCF수익률 | 부채/자본 | ROIC | P/E | 해자 |",
           "|--:|------|:--:|--:|--:|--:|--:|--:|:--:|"]
     rank_start = 1 if tier == "paid" else config.FREE_TIER_SKIP + 1
