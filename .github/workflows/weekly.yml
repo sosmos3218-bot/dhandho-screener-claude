@@ -18,7 +18,12 @@ on:
   schedule:
     # cron 은 UTC 기준. 월요일 08:00 KST = 일요일 23:00 UTC.
     - cron: "0 23 * * 0"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      send_newsletter:
+        description: "실제 구독자에게 뉴스레터까지 발송할지 (테스트 실행은 false 권장)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -43,14 +48,21 @@ jobs:
       - name: 의존성 설치
         run: pip install --quiet -r requirements.txt
 
-      - name: 전체 스캔(US+KR+JP) → 스냅샷 → 퍼블리시 → 뉴스레터(Brevo 자동발송)
+      - name: 전체 스캔(US+KR+JP) → 스냅샷 → 퍼블리시 → 뉴스레터(예약 실행 또는 send_newsletter=true 일 때만 Brevo 발송)
         env:
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
           BREVO_PAID_LIST_ID: ${{ secrets.BREVO_PAID_LIST_ID }}
           BREVO_FREE_LIST_ID: ${{ secrets.BREVO_FREE_LIST_ID }}
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
           BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
-        run: python weekly_run.py
+          SHOULD_SEND: ${{ github.event_name == 'schedule' || inputs.send_newsletter == true }}
+        run: |
+          if [ "$SHOULD_SEND" = "true" ]; then
+            python weekly_run.py
+          else
+            echo "ℹ️ 수동 실행(send_newsletter=false) — 스캔/스냅샷/퍼블리시만 하고 발송은 건너뜁니다."
+            python weekly_run.py --no-send
+          fi
 
       - name: published/snapshots 변경분 커밋 → GitHub(origin)
         if: always()
