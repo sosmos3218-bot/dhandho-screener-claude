@@ -134,19 +134,19 @@ _S = {
     "signup_body": {
         "ko": "**무료 구독**: 매주 스크리닝 결과 요약을 이메일로 받아보세요 (지금 통과 종목 중 "
               "**{rank}** 미리보기 수준의 무료판 뉴스레터).\n\n"
-              "**유료판 얼리버드**: 아직 출시 전입니다. 유료판에서는 **조건 통과 종목 전체·CSV 다운로드·"
-              "전주 대비 변화 추적**까지 제공할 예정이며, **지금 등록하시면 정식 가격이 얼마로 정해지든 "
-              "그 가격에서 평생 할인**을 적용해 드립니다.",
+              "**유료판 얼리버드**: 유료판에서는 **조건 통과 종목 전체·CSV 다운로드·"
+              "전주 대비 변화 추적**까지 제공합니다. **지금 등록하시면 정식 가격의 50% 평생 할인**을 "
+              "적용해 드립니다(선착순 100명).",
         "en": "**Free subscription**: Get a weekly summary of screening results by email (same preview "
               "level as the free tier: **{rank}**).\n\n"
-              "**Paid early-bird**: Not launched yet. The paid tier will include **the full list of "
-              "passing stocks, CSV download, and week-over-week change tracking**. **Sign up now and "
-              "lock in a lifetime discount** off whatever the launch price ends up being.",
+              "**Paid early-bird**: The paid tier provides **the full list of passing stocks, CSV "
+              "download, and week-over-week change tracking**. **Sign up now and get 50% off the "
+              "launch price for life** (limited to the first 100 people).",
         "ja": "**無料購読**：毎週のスクリーニング結果サマリーをメールでお届けします（現在通過中の銘柄のうち"
               "**{rank}**のプレビュー水準の無料版ニュースレター）。\n\n"
-              "**有料版アーリーバード**：まだリリース前です。有料版では**条件通過銘柄の全リスト・CSVダウンロード・"
-              "前週比の変化トラッキング**まで提供予定で、**今登録すると正式価格がいくらになっても"
-              "その価格の永久割引**が適用されます。",
+              "**有料版アーリーバード**：有料版では**条件通過銘柄の全リスト・CSVダウンロード・"
+              "前週比の変化トラッキング**まで提供します。**今登録すると正式価格の50%永久割引**が"
+              "適用されます（先着100名）。",
     },
     "signup_free_option": {"ko": "무료 구독", "en": "Free subscription", "ja": "無料購読"},
     "signup_waitlist_option": {"ko": "유료판 얼리버드 대기", "en": "Paid early-bird waitlist", "ja": "有料版アーリーバード待機"},
@@ -276,6 +276,11 @@ _S = {
         "ja": "有料版で全ランキング・CSVを解放できます。",
     },
     "csv_button": {"ko": "⬇️ 전체 결과 CSV 다운로드 (유료판)", "en": "⬇️ Download full results CSV (paid)", "ja": "⬇️ 全結果CSVダウンロード（有料版）"},
+    "snapshot_locked": {
+        "ko": "🔒 신규 진입/탈락 종목 상세는 유료판에서 공개됩니다.",
+        "en": "🔒 New/dropped stock details unlock in the paid tier.",
+        "ja": "🔒 新規/除外銘柄の詳細は有料版で公開されます。",
+    },
     "no_data_error": {
         "ko": "표시할 데이터가 없습니다.", "en": "No data to display.", "ja": "表示するデータがありません。"},
     "no_data_hint": {

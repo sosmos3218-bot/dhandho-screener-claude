@@ -362,6 +362,8 @@ st.caption("`python snapshot.py` (또는 주간 스케줄)가 통과 종목을 s
 latest, prev = load_latest_snapshots()
 if latest is None:
     st.info("아직 스냅샷이 없습니다. 터미널에서 `python snapshot.py` 를 실행하거나 주간 스케줄을 등록하세요.")
+elif not IS_PAID:
+    st.info(i18n.t("snapshot_locked"))
 else:
     latest_set = {r["ticker"]: r for r in latest["passes"]}
     prev_set = {r["ticker"]: r for r in (prev["passes"] if prev else [])}
@@ -396,26 +398,6 @@ st.info(
     "점수의 해석과 모든 투자 판단은 전적으로 본인의 몫입니다.",
     icon="ℹ️")
 
-# 1) 입력 양식 받기
-st.markdown("**1) 입력 양식 받기** (선택) — 받아서 보유종목을 채운 뒤 업로드하세요")
-dc1, dc2, _ = st.columns([1.2, 1.2, 3])
-dc1.download_button("⬇️ 엑셀 템플릿(.xlsx)", data=portfolio_io.template_xlsx_bytes(),
-                    file_name="dhandho_portfolio_template.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-dc2.download_button("⬇️ CSV 템플릿(.csv)", data=portfolio_io.template_csv_bytes(),
-                    file_name="dhandho_portfolio_template.csv", mime="text/csv")
-
-# 2) 파일 업로드 또는 직접 입력
-st.markdown("**2) 보유종목 입력** — 파일 업로드(우선) 또는 아래 직접 입력")
-up = st.file_uploader("포트폴리오 파일 (.xlsx / .csv)", type=["xlsx", "csv"],
-                      help="'티커' 열 필수. 보유수량·평균단가는 선택(평가손익 표시에 사용).")
-txt = st.text_area("또는 티커 직접 입력 (줄바꿈/콤마 구분)",
-                   value="AAPL\n005930\n7203.T\n033780\nKO", height=110)
-st.caption("티커 형식: 미국=AAPL · 한국=005930 (6자리) · 일본=7203.T (.T)")
-if USE_PUBLISHED:
-    st.caption("📦 배포 모드: 공개 유니버스(S&P500·한국·일본)에 포함된 종목만 진단됩니다 "
-               "(클라우드에서 실시간 조회 안 함).")
-go = st.button("🔍 건강검진 실행", type="primary")
 
 @st.cache_data(ttl=43200, show_spinner="보유종목 진단 중...")
 def run_diagnose(tickers_tuple):
@@ -423,87 +405,123 @@ def run_diagnose(tickers_tuple):
         return screening.diagnose_published(list(tickers_tuple), published_rows)
     return screening.diagnose(list(tickers_tuple), use_cache=True)
 
-if go:
-    raw_list, holdings = [], {}  # holdings: 티커 -> (수량, 평단)
-    if up is not None:
-        try:
-            pdf = portfolio_io.parse_upload(up)
-            raw_list = pdf["ticker"].tolist()
-            holdings = {row["ticker"]: (row["qty"], row["avg_price"])
-                        for _, row in pdf.iterrows()}
-            st.caption(f"📄 업로드 파싱: {len(raw_list)}개 종목 (파일 우선 적용)")
-        except Exception as e:
-            st.error(f"파일 파싱 실패: {e}")
+
+def render_diagnosis_results(d, holdings=None):
+    holdings = holdings or {}
+    ok = d[d["data_ok"]]
+    bad = d[~d["data_ok"]]
+
+    if not ok.empty:
+        s1, s2, s3 = st.columns(3)
+        s1.metric("진단 종목", f"{len(ok)}개")
+        s2.metric("평균 Dhandho", fmt(ok["dhandho_score"].mean()))
+        strong = int((ok["dhandho_score"] >= 75).sum())
+        s3.metric("Dhandho 기준 강함(75↑)", f"{strong}개")
+
+    # 종목별 진단 카드
+    for _, r in ok.iterrows():
+        label = screening.strength_label(r["dhandho_score"])
+        badge = {"Dhandho 기준 강함": "🟢", "보통": "🟡", "Dhandho 기준 약함": "🔴"}.get(label, "⚪")
+        with st.container(border=True):
+            h1, h2 = st.columns([2, 3])
+            with h1:
+                st.markdown(f"### {r['name']}")
+                st.caption(f"{r['input']} · {r['market']} · 해자 {r['moat_tag']}")
+                st.metric("Dhandho 종합", f"{r['dhandho_score']}", f"{badge} {label}")
+            with h2:
+                ax = pd.DataFrame({
+                    "축": ["①현금흐름", "②저부채", "③해자", "④저평가"],
+                    "점수": [r["score_cashflow"], r["score_debt"],
+                           r["score_moat"], r["score_value"]],
+                })
+                st.bar_chart(ax.set_index("축"), height=180, horizontal=True)
+            # 객관 지표 (사실 나열 — 해석/권유 없음)
+            st.markdown(
+                f"- ① FCF수익률 **{fmt(r['fcf_yield'],'%')}** · P/FCF {fmt(r['p_fcf'])}  "
+                f"&nbsp;②부채/자본 **{fmt(r['debt_equity'],digits=2)}** · 순부채/EBITDA {fmt(r['netdebt_ebitda'])}\n"
+                f"- ③ ROIC **{fmt(r['roic'],'%')}** · 매출총이익률 {fmt(r['gross_margin'],'%')}  "
+                f"&nbsp;④ P/E **{fmt(r['pe'])}** · P/B {fmt(r['pb'])} · 이익수익률 {fmt(r['earnings_yield'],'%')}"
+            )
+            # 업로드 파일에 보유수량/평단이 있으면 본인 포지션 사실 표시 (동일통화 가정)
+            if r["input"] in holdings:
+                q, avg = holdings[r["input"]]
+                parts = []
+                if pd.notna(q):
+                    parts.append(f"보유 {q:,.0f}주")
+                if pd.notna(avg):
+                    parts.append(f"평단 {avg:,.2f}")
+                    if r.get("price"):
+                        ret = (r["price"] - avg) / avg * 100
+                        parts.append(f"현재 {r['price']:,.2f} · 평가손익 **{ret:+.1f}%**")
+                if parts:
+                    st.caption("💼 " + " · ".join(parts) + "  (본인 입력 기준·동일통화 가정, 사실 정보)")
+            weak = [n for n, s in [("현금흐름", r["score_cashflow"]), ("부채", r["score_debt"]),
+                                   ("해자", r["score_moat"]), ("저평가", r["score_value"])] if s < 40]
+            strongx = [n for n, s in [("현금흐름", r["score_cashflow"]), ("부채", r["score_debt"]),
+                                      ("해자", r["score_moat"]), ("저평가", r["score_value"])] if s >= 70]
+            note = []
+            if strongx:
+                note.append(f"상대적 강점: {', '.join(strongx)}")
+            if weak:
+                note.append(f"상대적 약점: {', '.join(weak)}")
+            if note:
+                st.caption("📌 " + " · ".join(note) + "  (사실 정보이며 매매 판단 아님)")
+
+    if not bad.empty:
+        st.warning("조회 실패(티커/형식 확인): " +
+                   ", ".join(bad["input"].astype(str).tolist()))
+
+
+# 1) 빠른 조회 — 티커 1개
+st.markdown("**빠른 조회** — 티커 1개만 입력해서 바로 진단합니다")
+qc1, qc2 = st.columns([3, 1])
+quick_ticker = qc1.text_input(
+    "티커", placeholder="예: AAPL, 005930, 7203.T", label_visibility="collapsed")
+quick_go = qc2.button("🔍 조회", type="primary", width="stretch")
+st.caption("티커 형식: 미국=AAPL · 한국=005930 (6자리) · 일본=7203.T (.T)")
+if USE_PUBLISHED:
+    st.caption("📦 배포 모드: 공개 유니버스(S&P500·한국·일본)에 포함된 종목만 진단됩니다 "
+               "(클라우드에서 실시간 조회 안 함).")
+
+if quick_go:
+    t = quick_ticker.strip()
+    if not t:
+        st.warning("티커를 입력해 주세요.")
     else:
-        raw_list = [t.strip() for chunk in txt.split("\n")
-                    for t in chunk.split(",") if t.strip()]
+        render_diagnosis_results(run_diagnose((t,)))
 
-    if not raw_list:
-        st.warning("티커를 1개 이상 입력하거나 파일을 올려주세요.")
-    else:
-        d = run_diagnose(tuple(raw_list))
-        ok = d[d["data_ok"]]
-        bad = d[~d["data_ok"]]
+st.markdown("---")
 
-        if not ok.empty:
-            s1, s2, s3 = st.columns(3)
-            s1.metric("진단 종목", f"{len(ok)}개")
-            s2.metric("평균 Dhandho", fmt(ok["dhandho_score"].mean()))
-            strong = int((ok["dhandho_score"] >= 75).sum())
-            s3.metric("Dhandho 기준 강함(75↑)", f"{strong}개")
+# 2) 여러 종목을 한 번에 진단하려면 (파일 업로드)
+with st.expander("여러 종목을 한 번에 진단하려면 (파일 업로드)"):
+    st.markdown("**1) 입력 양식 받기** (선택) — 받아서 보유종목을 채운 뒤 업로드하세요")
+    dc1, dc2, _ = st.columns([1.2, 1.2, 3])
+    dc1.download_button("⬇️ 엑셀 템플릿(.xlsx)", data=portfolio_io.template_xlsx_bytes(),
+                        file_name="dhandho_portfolio_template.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    dc2.download_button("⬇️ CSV 템플릿(.csv)", data=portfolio_io.template_csv_bytes(),
+                        file_name="dhandho_portfolio_template.csv", mime="text/csv")
 
-        # 종목별 진단 카드
-        for _, r in ok.iterrows():
-            label = screening.strength_label(r["dhandho_score"])
-            badge = {"Dhandho 기준 강함": "🟢", "보통": "🟡", "Dhandho 기준 약함": "🔴"}.get(label, "⚪")
-            with st.container(border=True):
-                h1, h2 = st.columns([2, 3])
-                with h1:
-                    st.markdown(f"### {r['name']}")
-                    st.caption(f"{r['input']} · {r['market']} · 해자 {r['moat_tag']}")
-                    st.metric("Dhandho 종합", f"{r['dhandho_score']}", f"{badge} {label}")
-                with h2:
-                    ax = pd.DataFrame({
-                        "축": ["①현금흐름", "②저부채", "③해자", "④저평가"],
-                        "점수": [r["score_cashflow"], r["score_debt"],
-                               r["score_moat"], r["score_value"]],
-                    })
-                    st.bar_chart(ax.set_index("축"), height=180, horizontal=True)
-                # 객관 지표 (사실 나열 — 해석/권유 없음)
-                st.markdown(
-                    f"- ① FCF수익률 **{fmt(r['fcf_yield'],'%')}** · P/FCF {fmt(r['p_fcf'])}  "
-                    f"&nbsp;②부채/자본 **{fmt(r['debt_equity'],digits=2)}** · 순부채/EBITDA {fmt(r['netdebt_ebitda'])}\n"
-                    f"- ③ ROIC **{fmt(r['roic'],'%')}** · 매출총이익률 {fmt(r['gross_margin'],'%')}  "
-                    f"&nbsp;④ P/E **{fmt(r['pe'])}** · P/B {fmt(r['pb'])} · 이익수익률 {fmt(r['earnings_yield'],'%')}"
-                )
-                # 업로드 파일에 보유수량/평단이 있으면 본인 포지션 사실 표시 (동일통화 가정)
-                if r["input"] in holdings:
-                    q, avg = holdings[r["input"]]
-                    parts = []
-                    if pd.notna(q):
-                        parts.append(f"보유 {q:,.0f}주")
-                    if pd.notna(avg):
-                        parts.append(f"평단 {avg:,.2f}")
-                        if r.get("price"):
-                            ret = (r["price"] - avg) / avg * 100
-                            parts.append(f"현재 {r['price']:,.2f} · 평가손익 **{ret:+.1f}%**")
-                    if parts:
-                        st.caption("💼 " + " · ".join(parts) + "  (본인 입력 기준·동일통화 가정, 사실 정보)")
-                weak = [n for n, s in [("현금흐름", r["score_cashflow"]), ("부채", r["score_debt"]),
-                                       ("해자", r["score_moat"]), ("저평가", r["score_value"])] if s < 40]
-                strongx = [n for n, s in [("현금흐름", r["score_cashflow"]), ("부채", r["score_debt"]),
-                                          ("해자", r["score_moat"]), ("저평가", r["score_value"])] if s >= 70]
-                note = []
-                if strongx:
-                    note.append(f"상대적 강점: {', '.join(strongx)}")
-                if weak:
-                    note.append(f"상대적 약점: {', '.join(weak)}")
-                if note:
-                    st.caption("📌 " + " · ".join(note) + "  (사실 정보이며 매매 판단 아님)")
+    st.markdown("**2) 파일 업로드**")
+    up = st.file_uploader("포트폴리오 파일 (.xlsx / .csv)", type=["xlsx", "csv"],
+                          help="'티커' 열 필수. 보유수량·평균단가는 선택(평가손익 표시에 사용).")
+    bulk_go = st.button("🔍 건강검진 실행", key="bulk_diagnose")
 
-        if not bad.empty:
-            st.warning("조회 실패(티커/형식 확인): " +
-                       ", ".join(bad["input"].astype(str).tolist()))
+    if bulk_go:
+        raw_list, holdings = [], {}  # holdings: 티커 -> (수량, 평단)
+        if up is not None:
+            try:
+                pdf = portfolio_io.parse_upload(up)
+                raw_list = pdf["ticker"].tolist()
+                holdings = {row["ticker"]: (row["qty"], row["avg_price"])
+                            for _, row in pdf.iterrows()}
+                st.caption(f"📄 업로드 파싱: {len(raw_list)}개 종목")
+            except Exception as e:
+                st.error(f"파일 파싱 실패: {e}")
+        if not raw_list:
+            st.warning("파일을 올려주세요.")
+        else:
+            render_diagnosis_results(run_diagnose(tuple(raw_list)), holdings)
 
 st.caption("⚠️ 다시 강조: 본 진단은 **정보 제공·교육용 객관 점수**이며 매수·매도·보유 권유가 아닙니다. "
            "'물타기/손절' 판단을 대신하지 않습니다. 데이터는 yfinance(지연·오류 가능) 기준입니다.")
