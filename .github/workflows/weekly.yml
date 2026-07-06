@@ -88,7 +88,17 @@ jobs:
           fi
           git remote add hf "https://sosmos:${HF_TOKEN}@huggingface.co/spaces/sosmos/dhandho-screener" 2>/dev/null \
             || git remote set-url hf "https://sosmos:${HF_TOKEN}@huggingface.co/spaces/sosmos/dhandho-screener"
-          git push hf HEAD:main
+          # 간헐적 일시 오류 대비 최대 3회 재시도(4초 간격)
+          for attempt in 1 2 3; do
+            git fetch hf main -q || true
+            if git push hf HEAD:main; then
+              exit 0
+            fi
+            echo "⚠️ HF push 실패 (시도 $attempt/3) — 4초 후 재시도"
+            sleep 4
+          done
+          echo "❌ HF push 3회 모두 실패 — GitHub 반영은 완료되어 있으니 수동으로 'git push hf main' 필요"
+          exit 1
 
       - name: 산출물 업로드 (뉴스레터 + 스냅샷, 디버깅용)
         if: always()
