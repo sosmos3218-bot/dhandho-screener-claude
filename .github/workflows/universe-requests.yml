@@ -43,10 +43,10 @@ jobs:
       APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply == true }}
     steps:
       - name: 저장소 체크아웃
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 파이썬 설정
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -96,11 +96,14 @@ jobs:
           EOF
 
           # 이미 열린 PR이 있으면 force-push로 갱신됨 → 새로 만들지 않음
-          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
-            gh pr create --head "$BRANCH" --base main \
-              --title "유니버스 추가 요청 반영 (자동)" \
-              --body-file /tmp/pr-body.md \
-              || echo "⚠️ PR 생성 실패 (이미 존재하거나 권한 문제) — 브랜치 $BRANCH 는 갱신됨"
-          else
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
             echo "ℹ️ 기존 PR을 force-push로 갱신했습니다."
+            exit 0
+          fi
+          if ! gh pr create --head "$BRANCH" --base main \
+              --title "유니버스 추가 요청 반영 (자동)" \
+              --body-file /tmp/pr-body.md; then
+            echo "❌ PR 자동 생성 실패 — 브랜치는 push됐으니 아래 URL로 수동 생성하세요:"
+            echo "   https://github.com/${GITHUB_REPOSITORY}/pull/new/${BRANCH}"
+            exit 1
           fi
