@@ -118,6 +118,7 @@ US_UNIVERSE = [
     "WMT", "DIS", "WBD", "WM", "WAT", "WEC", "WFC", "WELL", "WST", "WDC",
     "WY", "WSM", "WMB", "WTW", "WDAY", "WYNN", "XEL", "XYL", "YUM", "ZBRA",
     "ZBH", "ZTS",
+    "ASML",  # 자동 추가 (사용자 요청)
 ]
 
 # 미국 종목 해자(Moat) 정성 태그 [INPUT]  (없으면 'none' 으로 간주)
