@@ -31,7 +31,7 @@ import brevo
 import config
 
 OTP_TTL_MINUTES = 10
-SESSION_TTL_DAYS = 30
+SESSION_TTL_DAYS = 14
 
 
 def is_paid_email(email: str) -> bool:

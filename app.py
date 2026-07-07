@@ -131,7 +131,7 @@ if _verified_email:
     st.sidebar.success(i18n.t("paid_unlocked"))
     st.sidebar.caption(i18n.t("paid_logged_in_as", email=_verified_email))
     if _session_persist_enabled:
-        st.sidebar.caption(i18n.t("paid_session_persist_note"))
+        st.sidebar.caption(i18n.t("paid_session_persist_note", days=paid_gate.SESSION_TTL_DAYS))
     if st.sidebar.button(i18n.t("paid_logout_button")):
         st.session_state.pop("verified_paid_email", None)
         st.session_state.pop("_otp_state", None)

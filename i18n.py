@@ -89,9 +89,9 @@ _S = {
     },
     "paid_logout_button": {"ko": "🚪 로그아웃", "en": "🚪 Log out", "ja": "🚪 ログアウト"},
     "paid_session_persist_note": {
-        "ko": "이 브라우저에서 30일간 로그인이 유지됩니다.",
-        "en": "You'll stay logged in on this browser for 30 days.",
-        "ja": "このブラウザでは30日間ログインが維持されます。",
+        "ko": "이 브라우저에서 {days}일간 로그인이 유지됩니다.",
+        "en": "You'll stay logged in on this browser for {days} days.",
+        "ja": "このブラウザでは{days}日間ログインが維持されます。",
     },
     "threshold_header": {
         "ko": "핵심 임계값 (config.py 기본)",

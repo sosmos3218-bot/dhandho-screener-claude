@@ -68,6 +68,11 @@ def send_transactional_email(sender_email: str, sender_name: str, to_email: str,
         return False
 
 
+def remove_contacts_from_list(list_id: str, emails: list, key: str) -> dict:
+    """리스트에서 컨택들의 멤버십만 제거한다(컨택 자체는 삭제하지 않음)."""
+    return request("POST", f"/contacts/lists/{list_id}/contacts/remove", key, {"emails": emails})
+
+
 def list_contacts_in_list(list_id: str, key: str, limit: int = 50) -> list:
     """리스트에 속한 모든 컨택(raw dict, attributes 포함)을 페이지네이션하며 모두 가져온다."""
     out, offset = [], 0
