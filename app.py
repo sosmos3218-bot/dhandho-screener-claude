@@ -102,29 +102,61 @@ st.sidebar.markdown("---")
 st.sidebar.markdown(f"**{i18n.t('paid_tier_header')}**")
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _check_paid_email(email: str) -> bool:
-    """Brevo 유료 리스트 조회 (Stripe 결제 웹훅이 자동으로 채움). 5분 캐시."""
-    return paid_gate.is_paid_email(email)
+_OTP_MSG_KEY = {
+    "invalid_email": "msg_invalid_email", "not_paid": "paid_email_fail",
+    "not_configured": "paid_otp_error", "error": "paid_otp_error",
+}
+_OTP_COOLDOWN_SEC = 30
 
+_verified_email = st.session_state.get("verified_paid_email")
 
-_paid_email = st.sidebar.text_input(
-    i18n.t("paid_email_label"), help=i18n.t("paid_email_help"))
-_paid_code = st.sidebar.text_input(
-    i18n.t("paid_code_label"), type="password", help=i18n.t("paid_code_help"))
-
-_email_ok = bool(_paid_email) and _check_paid_email(_paid_email)
-_code_ok = bool(_paid_code) and _paid_code.strip() in config.paid_access_codes()
-IS_PAID = _email_ok or _code_ok
-
-if IS_PAID:
+if _verified_email:
+    IS_PAID = True
     st.sidebar.success(i18n.t("paid_unlocked"))
-elif _paid_email:
-    st.sidebar.error(i18n.t("paid_email_fail"))
-elif _paid_code:
-    st.sidebar.error(i18n.t("paid_code_fail"))
+    st.sidebar.caption(i18n.t("paid_logged_in_as", email=_verified_email))
+    if st.sidebar.button(i18n.t("paid_logout_button")):
+        st.session_state.pop("verified_paid_email", None)
+        st.session_state.pop("_otp_state", None)
+        st.rerun()
 else:
-    st.sidebar.caption(i18n.free_preview_caption())
+    _paid_code = st.sidebar.text_input(
+        i18n.t("paid_code_label"), type="password", help=i18n.t("paid_code_help"))
+    _code_ok = bool(_paid_code) and _paid_code.strip() in config.paid_access_codes()
+
+    if _code_ok:
+        IS_PAID = True
+        st.sidebar.success(i18n.t("paid_unlocked"))
+    else:
+        IS_PAID = False
+        if _paid_code:
+            st.sidebar.error(i18n.t("paid_code_fail"))
+
+        _otp_email = st.sidebar.text_input(
+            i18n.t("paid_email_label"), help=i18n.t("paid_email_help"))
+        if st.sidebar.button(i18n.t("paid_send_code_button")):
+            now = dt.datetime.now().timestamp()
+            if now - st.session_state.get("_otp_last_sent", 0) < _OTP_COOLDOWN_SEC:
+                st.sidebar.warning(i18n.t("paid_otp_cooldown"))
+            else:
+                st.session_state["_otp_last_sent"] = now
+                ok, result = paid_gate.send_login_otp(_otp_email)
+                if ok:
+                    st.session_state["_otp_state"] = result
+                    st.sidebar.success(i18n.t("paid_otp_sent"))
+                else:
+                    st.sidebar.error(i18n.t(_OTP_MSG_KEY.get(result, "paid_otp_error")))
+
+        if st.session_state.get("_otp_state"):
+            _otp_code_input = st.sidebar.text_input(i18n.t("paid_otp_code_label"))
+            if st.sidebar.button(i18n.t("paid_verify_button")):
+                if paid_gate.verify_login_otp(st.session_state["_otp_state"], _otp_email, _otp_code_input):
+                    st.session_state["verified_paid_email"] = st.session_state["_otp_state"]["email"]
+                    st.session_state.pop("_otp_state", None)
+                    st.rerun()
+                else:
+                    st.sidebar.error(i18n.t("paid_otp_fail"))
+        elif not _paid_code:
+            st.sidebar.caption(i18n.free_preview_caption())
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"**{i18n.t('threshold_header')}**")

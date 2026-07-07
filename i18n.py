@@ -38,15 +38,15 @@ _S = {
     "paid_tier_header": {"ko": "🔓 유료판", "en": "🔓 Paid tier", "ja": "🔓 有料版"},
     "paid_email_label": {"ko": "유료판 이메일", "en": "Paid tier email", "ja": "有料版メールアドレス"},
     "paid_email_help": {
-        "ko": "결제에 사용한 이메일을 입력하면 자동으로 확인됩니다.",
-        "en": "Enter the email you used to pay — it's verified automatically.",
-        "ja": "決済に使用したメールアドレスを入力すると自動で確認されます。",
+        "ko": "결제에 사용한 이메일을 입력하면 인증 코드를 보내드립니다.",
+        "en": "Enter the email you used to pay — we'll send you a login code.",
+        "ja": "決済に使用したメールアドレスを入力すると、認証コードをお送りします。",
     },
     "paid_code_label": {"ko": "또는 백업 코드", "en": "Or backup code", "ja": "またはバックアップコード"},
     "paid_code_help": {
-        "ko": "이메일 자동 확인이 안 될 때 쓰는 수동 백업 코드입니다.",
+        "ko": "이메일 인증이 안 될 때 쓰는 수동 백업 코드입니다.",
         "en": "A manual backup code for when email verification doesn't work.",
-        "ja": "メール自動確認ができない場合に使う手動バックアップコードです。",
+        "ja": "メール認証ができない場合に使う手動バックアップコードです。",
     },
     "paid_unlocked": {
         "ko": "✅ 유료판 잠금 해제됨 — 전체 종목 표시",
@@ -59,6 +59,35 @@ _S = {
         "ja": "決済確認ができません。決済時のメールアドレスか確認するか、しばらくしてから再度お試しください。",
     },
     "paid_code_fail": {"ko": "코드가 올바르지 않습니다.", "en": "That code isn't valid.", "ja": "コードが正しくありません。"},
+    "paid_send_code_button": {
+        "ko": "📧 인증 코드 받기", "en": "📧 Send login code", "ja": "📧 認証コードを受け取る",
+    },
+    "paid_otp_sent": {
+        "ko": "코드를 보냈습니다 — 이메일을 확인해 10분 이내에 입력하세요.",
+        "en": "Code sent — check your email and enter it within 10 minutes.",
+        "ja": "コードを送信しました — メールを確認し10分以内に入力してください。",
+    },
+    "paid_otp_cooldown": {
+        "ko": "잠시 후 다시 시도해 주세요 (재발송 대기 중).",
+        "en": "Please wait a moment before requesting another code.",
+        "ja": "しばらくしてから再度お試しください（再送信の待機中）。",
+    },
+    "paid_otp_code_label": {"ko": "인증 코드 (6자리)", "en": "Login code (6 digits)", "ja": "認証コード（6桁）"},
+    "paid_verify_button": {"ko": "코드 확인", "en": "Verify code", "ja": "コードを確認"},
+    "paid_otp_fail": {
+        "ko": "코드가 올바르지 않거나 만료되었습니다. 다시 요청해 주세요.",
+        "en": "That code is invalid or expired — request a new one.",
+        "ja": "コードが正しくないか期限切れです。再度リクエストしてください。",
+    },
+    "paid_otp_error": {
+        "ko": "코드 발송 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+        "en": "Something went wrong sending the code — please try again shortly.",
+        "ja": "コード送信中に問題が発生しました。しばらくしてから再度お試しください。",
+    },
+    "paid_logged_in_as": {
+        "ko": "{email} 로 로그인됨", "en": "Logged in as {email}", "ja": "{email} でログイン中",
+    },
+    "paid_logout_button": {"ko": "🚪 로그아웃", "en": "🚪 Log out", "ja": "🚪 ログアウト"},
     "threshold_header": {
         "ko": "핵심 임계값 (config.py 기본)",
         "en": "Key thresholds (config.py defaults)",
