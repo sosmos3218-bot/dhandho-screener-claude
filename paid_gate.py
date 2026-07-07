@@ -11,7 +11,15 @@ Brevo 유료 리스트(BREVO_PAID_LIST_ID)에 자동으로 추가한다. is_paid
 는 6자리 코드를 이메일로 보내 실제 소유자인지 확인한다. 별도 DB 없이 동작하도록, 코드/만료
 시각은 이 모듈이 아니라 호출부(app.py)의 st.session_state 에 보관한다 — 발급과 검증이 항상
 같은 브라우저 세션 안에서 끝나므로 서명된 토큰이나 서버 측 저장소가 필요 없다.
+
+OTP로 로그인한 뒤 탭을 닫아도 로그인이 유지되게 하려면(세션 간 유지) issue_session_token/
+verify_session_token 을 쓴다. 이 역시 DB 없이 동작한다 — "이메일|만료시각" 을 config.session_secret()
+으로 HMAC 서명한 토큰을 브라우저 쿠키에 저장해두고, 복원 시 서명·만료·(재조회한) 유료 상태를
+모두 다시 검증한다. session_secret 미설정 시 issue/verify 모두 빈 값을 반환해 이 기능 자체가
+꺼지고 지금처럼 세션 안에서만 로그인이 유지된다(안전한 기본값).
 """
+import hashlib
+import hmac
 import json
 import random
 import urllib.error
@@ -23,6 +31,7 @@ import brevo
 import config
 
 OTP_TTL_MINUTES = 10
+SESSION_TTL_DAYS = 30
 
 
 def is_paid_email(email: str) -> bool:
@@ -90,3 +99,36 @@ def verify_login_otp(otp_state: dict, email: str, code: str) -> bool:
     except Exception:
         return False
     return datetime.now(timezone.utc) < expires
+
+
+def _sign(payload: str) -> str:
+    return hmac.new(config.session_secret().encode(), payload.encode(), hashlib.sha256).hexdigest()
+
+
+def issue_session_token(email: str) -> str:
+    """OTP 검증 성공 후 발급하는 장기 로그인 토큰(브라우저 쿠키 저장용).
+    session_secret 미설정 시 빈 문자열(호출부는 이 경우 쿠키를 세팅하지 않는다)."""
+    if not config.session_secret():
+        return ""
+    expires = int((datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS)).timestamp())
+    payload = f"{email}|{expires}"
+    return f"{payload}|{_sign(payload)}"
+
+
+def verify_session_token(token: str) -> str:
+    """토큰이 유효하면(서명 일치 · 미만료 · 지금도 유료 이메일) 이메일을, 아니면 빈 문자열을 반환.
+    구독이 취소돼 유료 리스트에서 빠지면 쿠키가 남아있어도 즉시 접근이 막힌다."""
+    if not token or not config.session_secret():
+        return ""
+    parts = token.split("|")
+    if len(parts) != 3:
+        return ""
+    email, expires_s, sig = parts
+    if not hmac.compare_digest(_sign(f"{email}|{expires_s}"), sig):
+        return ""
+    try:
+        if datetime.now(timezone.utc).timestamp() > int(expires_s):
+            return ""
+    except ValueError:
+        return ""
+    return email if is_paid_email(email) else ""

@@ -38,7 +38,14 @@ pinned: false
 
 - **대시보드**: 무료판은 통과 종목 중 `config.FREE_TIER_SKIP+1`~`FREE_TIER_SKIP+FREE_TIER_LIMIT`위
   (기본 6~10위, 상위 1~5위는 비공개)만 미리보기로 표시 — 최상위 후보를 가리는 것 자체가 유료 전환 유인이다.
-  사이드바에 **결제한 이메일**을 입력하면 Brevo 유료 리스트 조회로 자동 확인되어 전체 종목 + CSV 다운로드가 열린다.
+  사이드바에서 **결제한 이메일로 6자리 로그인 코드**를 받아 입력하면(`paid_gate.send_login_otp`/
+  `verify_login_otp`) 전체 종목 + CSV 다운로드가 열린다 — 예전처럼 이메일을 입력하기만 하면 열리는
+  방식이 아니라 실제 소유자 확인을 거친다. `config.session_secret`(HMAC 서명키)이 설정돼 있으면
+  브라우저 쿠키로 30일간 로그인이 유지된다(탭을 닫아도 재인증 불필요, 구독 취소 시 다음 방문에서
+  자동 재확인돼 즉시 차단). 미설정 시엔 이 기능만 꺼지고 로그인은 브라우저 세션 안에서만 유지된다.
+  키 생성: `python3 -c "import secrets; print(secrets.token_hex(32))"` → `secrets.json`의
+  `session_secret` 또는 `SESSION_SECRET` 환경변수(클라우드 배포용)에 등록. **한 번 정하면 바꾸지
+  말 것** — 바꾸면 기존 로그인 쿠키가 전부 무효화된다.
 - **구독 신청 폼**(대시보드 상단): 무료 뉴스레터 구독과 유료판 얼리버드 대기(평생 할인)를 한 폼에서 선택해
   신청할 수 있다(`waitlist.py`) — 각각 Brevo `BREVO_FREE_LIST_ID`/`BREVO_WAITLIST_LIST_ID` 리스트에 등록된다.
 - **결제 자동화(Polar/Stripe → Brevo)**: `webhook/`의 Cloudflare Worker가 결제 완료 웹훅을 받아

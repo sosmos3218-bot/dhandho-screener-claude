@@ -88,6 +88,11 @@ _S = {
         "ko": "{email} 로 로그인됨", "en": "Logged in as {email}", "ja": "{email} でログイン中",
     },
     "paid_logout_button": {"ko": "🚪 로그아웃", "en": "🚪 Log out", "ja": "🚪 ログアウト"},
+    "paid_session_persist_note": {
+        "ko": "이 브라우저에서 30일간 로그인이 유지됩니다.",
+        "en": "You'll stay logged in on this browser for 30 days.",
+        "ja": "このブラウザでは30日間ログインが維持されます。",
+    },
     "threshold_header": {
         "ko": "핵심 임계값 (config.py 기본)",
         "en": "Key thresholds (config.py defaults)",

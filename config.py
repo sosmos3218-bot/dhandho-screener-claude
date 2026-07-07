@@ -364,3 +364,13 @@ def brevo_sender() -> tuple:
             or str(secrets.get("smtp", {}).get("from_name", "")).strip()
             or "단도 위클리")
     return email, name
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 6) 로그인 세션 유지 (브라우저 쿠키 서명용)
+# ──────────────────────────────────────────────────────────────────────────
+def session_secret() -> str:
+    """장기 로그인 쿠키(세션 간 유지) 서명용 비밀키. 미설정 시 해당 기능은 자동으로 꺼지고
+    (안전한 기본값) 로그인은 지금처럼 브라우저 세션 안에서만 유지된다."""
+    return (_os.environ.get("SESSION_SECRET", "").strip()
+            or str(_load_secrets().get("session_secret", "")).strip())

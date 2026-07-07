@@ -9,7 +9,9 @@ import datetime as dt
 import glob
 import json
 import os
+import time
 
+import extra_streamlit_components as stx
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -107,16 +109,39 @@ _OTP_MSG_KEY = {
     "not_configured": "paid_otp_error", "error": "paid_otp_error",
 }
 _OTP_COOLDOWN_SEC = 30
+_SESSION_COOKIE = "dhandho_session"
+
+# session_secret 미설정 시 이 기능 자체를 건너뛴다 — 로그인은 지금처럼 세션 안에서만 유지된다.
+_session_persist_enabled = bool(config.session_secret())
+_cookie_manager = stx.CookieManager(key="dhandho_cookie_manager") if _session_persist_enabled else None
 
 _verified_email = st.session_state.get("verified_paid_email")
+# 방금 로그아웃한 직후의 rerun 에서는 쿠키 삭제가 브라우저에 아직 반영되지 않았을 수 있어
+# (컴포넌트 왕복이 rerun 전에 끝난다는 보장이 없음) 쿠키 복원을 한 번 건너뛴다 —
+# 안 그러면 지워지기 전의 쿠키로 로그아웃 직후 즉시 재로그인돼 버린다.
+_just_logged_out = st.session_state.pop("_just_logged_out", False)
+if not _verified_email and _cookie_manager and not _just_logged_out:
+    _restored_email = paid_gate.verify_session_token(_cookie_manager.get(_SESSION_COOKIE) or "")
+    if _restored_email:
+        st.session_state["verified_paid_email"] = _restored_email
+        _verified_email = _restored_email
 
 if _verified_email:
     IS_PAID = True
     st.sidebar.success(i18n.t("paid_unlocked"))
     st.sidebar.caption(i18n.t("paid_logged_in_as", email=_verified_email))
+    if _session_persist_enabled:
+        st.sidebar.caption(i18n.t("paid_session_persist_note"))
     if st.sidebar.button(i18n.t("paid_logout_button")):
         st.session_state.pop("verified_paid_email", None)
         st.session_state.pop("_otp_state", None)
+        st.session_state["_just_logged_out"] = True
+        if _cookie_manager:
+            _cookie_manager.delete(_SESSION_COOKIE, key="dhandho_cookie_delete")
+            # 쿠키 컴포넌트(iframe)가 삭제를 실제로 실행할 시간을 준다 — 바로 rerun 하면
+            # 컴포넌트가 마운트되기 전에 DOM이 갈아엎여 삭제가 브라우저에 반영되지 않는다
+            # (extra_streamlit_components 의 알려진 동작).
+            time.sleep(0.15)
         st.rerun()
 else:
     _paid_code = st.sidebar.text_input(
@@ -150,8 +175,17 @@ else:
             _otp_code_input = st.sidebar.text_input(i18n.t("paid_otp_code_label"))
             if st.sidebar.button(i18n.t("paid_verify_button")):
                 if paid_gate.verify_login_otp(st.session_state["_otp_state"], _otp_email, _otp_code_input):
-                    st.session_state["verified_paid_email"] = st.session_state["_otp_state"]["email"]
+                    _logged_in_email = st.session_state["_otp_state"]["email"]
+                    st.session_state["verified_paid_email"] = _logged_in_email
                     st.session_state.pop("_otp_state", None)
+                    if _cookie_manager:
+                        _token = paid_gate.issue_session_token(_logged_in_email)
+                        if _token:
+                            _cookie_manager.set(
+                                _SESSION_COOKIE, _token, key="dhandho_cookie_set",
+                                expires_at=dt.datetime.now() + dt.timedelta(days=paid_gate.SESSION_TTL_DAYS),
+                            )
+                            time.sleep(0.15)  # 로그아웃과 동일한 이유로 rerun 전 짧게 대기
                     st.rerun()
                 else:
                     st.sidebar.error(i18n.t("paid_otp_fail"))
