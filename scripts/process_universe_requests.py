@@ -26,14 +26,12 @@ Brevo 리스트(brevo_universe_list_id)에 REQUESTED_TICKER 속성으로 쌓인�
 import json
 import re
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import brevo  # noqa: E402
 import config  # noqa: E402
 import data  # noqa: E402
 
@@ -43,74 +41,30 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.py"
 # ──────────────────────────────────────────────────────────────────────────
 # Brevo
 # ──────────────────────────────────────────────────────────────────────────
-def _brevo_get(url: str, key: str) -> dict:
-    req = urllib.request.Request(url, headers={"Accept": "application/json", "api-key": key})
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return json.loads(r.read().decode("utf-8"))
-
-
-def _brevo_update_contact(email: str, key: str, attributes: dict) -> bool:
-    payload = json.dumps({"attributes": attributes}).encode("utf-8")
-    req = urllib.request.Request(
-        f"https://api.brevo.com/v3/contacts/{urllib.parse.quote(email)}",
-        data=payload,
-        headers={"Content-Type": "application/json", "Accept": "application/json", "api-key": key},
-        method="PUT",
-    )
-    try:
-        urllib.request.urlopen(req, timeout=10)
-        return True
-    except Exception:
-        return False
-
-
 def _notify_requester(email: str, ticker: str) -> None:
     key = config.brevo_api_key()
     admin_email, sender_name = config.brevo_sender()
     if not key or not admin_email:
         return
-    payload = {
-        "sender": {"name": sender_name, "email": admin_email},
-        "to": [{"email": email}],
-        "subject": f"[Dhandho Screener] '{ticker}' 종목이 분석 대상에 추가되었습니다",
-        "htmlContent": (
-            f"<p>요청하신 종목 <b>{ticker}</b>이(가) 분석 대상 유니버스에 추가되었습니다. "
-            f"다음 주간 스캔부터 반영됩니다.</p>"
-        ),
-    }
-    req = urllib.request.Request(
-        "https://api.brevo.com/v3/smtp/email",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Accept": "application/json", "api-key": key},
-        method="POST",
+    brevo.send_transactional_email(
+        admin_email, sender_name, email,
+        f"[Dhandho Screener] '{ticker}' 종목이 분석 대상에 추가되었습니다",
+        f"<p>요청하신 종목 <b>{ticker}</b>이(가) 분석 대상 유니버스에 추가되었습니다. "
+        f"다음 주간 스캔부터 반영됩니다.</p>",
+        key,
     )
-    try:
-        urllib.request.urlopen(req, timeout=8)
-    except Exception:
-        pass
 
 
 def fetch_pending_requests(list_id: str, key: str) -> list:
     """[{email, ticker}] — PROCESSED=true 인 컨택은 제외."""
-    out, offset, limit = [], 0, 50
-    while True:
-        page = _brevo_get(
-            f"https://api.brevo.com/v3/contacts/lists/{list_id}/contacts?limit={limit}&offset={offset}",
-            key,
-        )
-        contacts = page.get("contacts", [])
-        if not contacts:
-            break
-        for c in contacts:
-            attrs = c.get("attributes", {}) or {}
-            if attrs.get("PROCESSED"):
-                continue
-            ticker = str(attrs.get("REQUESTED_TICKER", "")).strip().upper()
-            if ticker:
-                out.append({"email": c.get("email"), "ticker": ticker})
-        offset += limit
-        if offset >= page.get("count", 0):
-            break
+    out = []
+    for c in brevo.list_contacts_in_list(list_id, key):
+        attrs = c.get("attributes", {}) or {}
+        if attrs.get("PROCESSED"):
+            continue
+        ticker = str(attrs.get("REQUESTED_TICKER", "")).strip().upper()
+        if ticker:
+            out.append({"email": c.get("email"), "ticker": ticker})
     return out
 
 
@@ -264,7 +218,7 @@ def main() -> int:
             print(f"  [완료] {ticker} ({market}) — 유니버스에 반영됨, 요청자 안내 (요청 {len(emails)}건)")
             if apply:
                 for e in emails:
-                    _brevo_update_contact(e, key, {"PROCESSED": True})
+                    brevo.update_contact(e, {"PROCESSED": True}, key)
                     _notify_requester(e, ticker)
                 finalized += 1
             continue
@@ -275,7 +229,7 @@ def main() -> int:
             print(f"  [무효] {ticker} ({market}) — 실제 종목 확인 실패 (요청자 {len(emails)}명)")
             if apply:
                 for e in emails:
-                    _brevo_update_contact(e, key, {"PROCESSED": True, "VALIDATION": "invalid"})
+                    brevo.update_contact(e, {"PROCESSED": True, "VALIDATION": "invalid"}, key)
                 invalid += 1
             continue
 

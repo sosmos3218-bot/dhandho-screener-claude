@@ -80,8 +80,23 @@ jobs:
           fi
 
           BRANCH="auto/universe-requests"
+          BOT_EMAIL="github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "$BOT_EMAIL"
+
+          # 안전장치: 기존 브랜치의 최신 커밋이 봇이 아닌 사람이 만든 것이면(예: 리뷰어가
+          # PR 브랜치에 직접 수정 커밋을 얹은 경우) force-push로 덮어쓰지 않고 실행을 멈춘다.
+          git fetch origin "$BRANCH" 2>/dev/null || true
+          if git rev-parse --verify -q "origin/$BRANCH" > /dev/null; then
+            TIP_AUTHOR="$(git log -1 --format='%ae' "origin/$BRANCH")"
+            if [ "$TIP_AUTHOR" != "$BOT_EMAIL" ]; then
+              echo "⚠️ '$BRANCH' 브랜치의 최신 커밋 작성자가 '$TIP_AUTHOR'(봇 아님)입니다."
+              echo "   사람이 직접 얹은 변경을 덮어쓰지 않기 위해 자동 반영을 건너뜁니다."
+              echo "   해당 PR/브랜치를 직접 검토·머지하거나 정리한 뒤 다시 실행하세요."
+              exit 1
+            fi
+          fi
+
           git checkout -b "$BRANCH"
           git add config.py
           git commit -m "config: 사용자 요청 종목 유니버스 추가 (자동)"

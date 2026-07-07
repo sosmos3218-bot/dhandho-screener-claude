@@ -7,8 +7,11 @@ Example: ensure_brevo_list.py "Dhandho Screener - Free" brevo_free_list_id
 import json
 import sys
 import urllib.error
-import urllib.request
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import brevo  # noqa: E402
 
 SECRETS_PATH = Path(__file__).resolve().parent.parent / "secrets.json"
 
@@ -30,21 +33,14 @@ def main() -> int:
         print(json.dumps({"error": "brevo_api_key missing in secrets.json"}))
         return 1
 
-    headers = {
-        "api-key": api_key,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
+    def _finish(list_id: str, status: str) -> int:
+        secrets[secrets_key] = list_id
+        SECRETS_PATH.write_text(json.dumps(secrets, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(json.dumps({"list_id": list_id, "status": status, "error": None, "secrets_updated": True}))
+        return 0
 
-    # GET existing lists
-    req = urllib.request.Request(
-        "https://api.brevo.com/v3/contacts/lists?limit=50",
-        headers=headers,
-        method="GET",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        lists = brevo.list_lists(api_key)
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         print(json.dumps({"error": f"GET lists failed: HTTP {e.code}", "body": body}))
@@ -53,27 +49,12 @@ def main() -> int:
         print(json.dumps({"error": f"GET lists failed: {e}"}))
         return 1
 
-    def _finish(list_id: str, status: str) -> int:
-        secrets[secrets_key] = list_id
-        SECRETS_PATH.write_text(json.dumps(secrets, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        print(json.dumps({"list_id": list_id, "status": status, "error": None, "secrets_updated": True}))
-        return 0
-
-    for lst in data.get("lists") or []:
+    for lst in lists:
         if (lst.get("name") or "").strip() == list_name:
             return _finish(str(lst["id"]), "reused")
 
-    # POST new list
-    payload = json.dumps({"name": list_name, "folderId": 1}).encode("utf-8")
-    req = urllib.request.Request(
-        "https://api.brevo.com/v3/contacts/lists",
-        data=payload,
-        headers=headers,
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            created = json.loads(resp.read().decode("utf-8"))
+        created = brevo.create_list(list_name, api_key)
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         print(json.dumps({"error": f"POST list failed: HTTP {e.code}", "body": body}))

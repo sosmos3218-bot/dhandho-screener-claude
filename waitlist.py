@@ -9,12 +9,10 @@
 반환값은 (성공여부, 상태코드) 이며, 실제 언어별 메시지는 호출부(app.py)가 i18n.t()로 렌더한다
 — 이 모듈은 Streamlit 세션/언어에 의존하지 않는다.
 """
-import json
 import re
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 
+import brevo
 import config
 
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -24,48 +22,21 @@ def is_valid_email(email: str) -> bool:
     return bool(_EMAIL_RE.match((email or "").strip()))
 
 
-def _add_to_brevo_list(email: str, list_id: str, attributes: dict) -> bool:
-    key = config.brevo_api_key()
-    if not key or not list_id:
-        return False
-    payload = {
-        "email": email,
-        "listIds": [int(list_id)],
-        "updateEnabled": True,
-        "attributes": attributes,
-    }
-    req = urllib.request.Request(
-        "https://api.brevo.com/v3/contacts",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Accept": "application/json", "api-key": key},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=8) as r:
-            return r.status in (201, 204)
-    except urllib.error.HTTPError as e:
-        return e.code == 204  # 이미 등록된 이메일(업데이트)도 정상 처리
-    except Exception:
-        return False
-
-
 def join_free(email: str) -> tuple:
     """무료 뉴스레터 구독 신청. (True, "success_free") 또는 (False, 에러코드)."""
     email = (email or "").strip().lower()
     if not is_valid_email(email):
         return False, "invalid_email"
 
-    list_id = config.brevo_free_list_id()
-    if not config.brevo_api_key() or not list_id:
+    key, list_id = config.brevo_api_key(), config.brevo_free_list_id()
+    if not key or not list_id:
         return False, "not_configured"
 
-    ok = _add_to_brevo_list(email, list_id, {
+    ok = brevo.add_contact_to_list(email, list_id, {
         "SOURCE": "dhandho-screener app free signup",
         "JOINED_AT": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    })
-    if not ok:
-        return False, "error"
-    return True, "success_free"
+    }, key)
+    return (True, "success_free") if ok else (False, "error")
 
 
 def join_waitlist(email: str) -> tuple:
@@ -74,18 +45,16 @@ def join_waitlist(email: str) -> tuple:
     if not is_valid_email(email):
         return False, "invalid_email"
 
-    list_id = config.brevo_waitlist_list_id()
-    if not config.brevo_api_key() or not list_id:
+    key, list_id = config.brevo_api_key(), config.brevo_waitlist_list_id()
+    if not key or not list_id:
         return False, "not_configured"
 
-    ok = _add_to_brevo_list(email, list_id, {
+    ok = brevo.add_contact_to_list(email, list_id, {
         "SOURCE": "dhandho-screener app waitlist",
         "EARLYBIRD": True,
         "JOINED_AT": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    })
-    if not ok:
-        return False, "error"
-    return True, "success_waitlist"
+    }, key)
+    return (True, "success_waitlist") if ok else (False, "error")
 
 
 def _notify_admin_ticker_request(email: str, ticker: str) -> None:
@@ -94,25 +63,12 @@ def _notify_admin_ticker_request(email: str, ticker: str) -> None:
     admin_email, sender_name = config.brevo_sender()
     if not key or not admin_email:
         return
-    payload = {
-        "sender": {"name": sender_name, "email": admin_email},
-        "to": [{"email": admin_email}],
-        "subject": f"[Dhandho Screener] 종목 추가 요청: {ticker}",
-        "htmlContent": (
-            f"<p>새 분석 대상 추가 요청이 접수됐습니다.</p>"
-            f"<p><b>티커:</b> {ticker}<br><b>요청자 이메일:</b> {email}</p>"
-        ),
-    }
-    req = urllib.request.Request(
-        "https://api.brevo.com/v3/smtp/email",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Accept": "application/json", "api-key": key},
-        method="POST",
+    brevo.send_transactional_email(
+        admin_email, sender_name, admin_email,
+        f"[Dhandho Screener] 종목 추가 요청: {ticker}",
+        f"<p>새 분석 대상 추가 요청이 접수됐습니다.</p><p><b>티커:</b> {ticker}<br><b>요청자 이메일:</b> {email}</p>",
+        key,
     )
-    try:
-        urllib.request.urlopen(req, timeout=8)
-    except Exception:
-        pass
 
 
 def request_ticker(email: str, ticker: str) -> tuple:
@@ -125,15 +81,15 @@ def request_ticker(email: str, ticker: str) -> tuple:
     if not ticker:
         return False, "error"
 
-    list_id = config.brevo_universe_list_id()
-    if not config.brevo_api_key() or not list_id:
+    key, list_id = config.brevo_api_key(), config.brevo_universe_list_id()
+    if not key or not list_id:
         return False, "not_configured"
 
-    ok = _add_to_brevo_list(email, list_id, {
+    ok = brevo.add_contact_to_list(email, list_id, {
         "SOURCE": "dhandho-screener app universe request",
         "REQUESTED_TICKER": ticker,
         "JOINED_AT": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    })
+    }, key)
     if not ok:
         return False, "error"
 

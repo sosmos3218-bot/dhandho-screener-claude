@@ -10,8 +10,11 @@ Usage: ensure_brevo_attributes.py
 import json
 import sys
 import urllib.error
-import urllib.request
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import brevo  # noqa: E402
 
 SECRETS_PATH = Path(__file__).resolve().parent.parent / "secrets.json"
 
@@ -36,25 +39,15 @@ def main() -> int:
         print(json.dumps({"error": "brevo_api_key missing in secrets.json"}))
         return 1
 
-    headers = {"api-key": api_key, "Content-Type": "application/json", "Accept": "application/json"}
-
-    # 기존 스키마 조회 (이미 있는 속성은 건너뜀)
-    req = urllib.request.Request("https://api.brevo.com/v3/contacts/attributes", headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        existing = {a["name"] for a in json.loads(resp.read().decode("utf-8")).get("attributes", [])}
+    existing = brevo.list_attribute_names(api_key)
 
     results = {}
     for name, attr_type in ATTRIBUTES.items():
         if name in existing:
             results[name] = "already exists"
             continue
-        payload = json.dumps({"type": attr_type}).encode("utf-8")
-        req = urllib.request.Request(
-            f"https://api.brevo.com/v3/contacts/attributes/normal/{name}",
-            data=payload, headers=headers, method="POST",
-        )
         try:
-            urllib.request.urlopen(req, timeout=15)
+            brevo.create_attribute(name, attr_type, api_key)
             results[name] = "created"
         except urllib.error.HTTPError as e:
             results[name] = f"HTTP {e.code}: {e.read().decode('utf-8', errors='replace')}"
