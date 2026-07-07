@@ -48,12 +48,20 @@ pinned: false
   `session_secret` 또는 `SESSION_SECRET` 환경변수(클라우드 배포용)에 등록. **한 번 정하면 바꾸지
   말 것** — 바꾸면 기존 로그인 쿠키가 전부 무효화된다.
 - **유료 구독자 수동 관리**: 결제 자동화(아래 웹훅)를 붙이기 전에는 관리자가 직접 Brevo 유료
-  리스트에 이메일을 등록/조회/제거한다:
-  ```bash
-  .venv/bin/python scripts/manage_paid_subscribers.py list                 # 현재 유료 구독자 조회
-  .venv/bin/python scripts/manage_paid_subscribers.py add <이메일...>       # 직권 등록
-  .venv/bin/python scripts/manage_paid_subscribers.py remove <이메일...>    # 제거
-  ```
+  리스트에 이메일을 등록/조회/제거한다. 두 가지 경로가 있고 **같은 함수**(`paid_gate.list_paid_subscribers`/
+  `add_paid_subscriber`/`remove_paid_subscribers`)를 공유하므로 결과가 어긋나지 않는다:
+  - **관리자 페이지(로컬 실행 불필요)**: 배포된 대시보드 URL에 **`?admin=1`** 을 붙이면(`https://…/?admin=1`)
+    관리자 페이지(`admin_page.py`)가 뜬다 — 일반 방문자의 사이드바/네비게이션에는 전혀 노출되지 않고,
+    URL을 알아도 **`ADMIN_PASSWORD`** 비밀번호를 통과해야 기능이 보인다. 비밀번호 설정:
+    `python3 -c "import secrets; print(secrets.token_urlsafe(16))"` → `secrets.json`의 `admin_password`
+    또는 `ADMIN_PASSWORD` 환경변수(클라우드 배포용, HF Spaces Settings→Secrets)에 등록. 미설정 시
+    관리자 페이지 자체가 비활성화된다.
+  - **로컬 CLI**(스크립팅/일괄 등록에 편리):
+    ```bash
+    .venv/bin/python scripts/manage_paid_subscribers.py list                 # 현재 유료 구독자 조회
+    .venv/bin/python scripts/manage_paid_subscribers.py add <이메일...>       # 직권 등록
+    .venv/bin/python scripts/manage_paid_subscribers.py remove <이메일...>    # 제거
+    ```
 - **구독 신청 폼**(대시보드 상단): 무료 뉴스레터 구독과 유료판 얼리버드 대기(평생 할인)를 한 폼에서 선택해
   신청할 수 있다(`waitlist.py`) — 각각 Brevo `BREVO_FREE_LIST_ID`/`BREVO_WAITLIST_LIST_ID` 리스트에 등록된다.
 - **결제 자동화(Polar/Stripe → Brevo)**: `webhook/`의 Cloudflare Worker가 결제 완료 웹훅을 받아
@@ -173,7 +181,8 @@ GitHub Actions Secrets(BREVO_*, HF_TOKEN — 저장소 Settings에 이미 등록
 | `config.py` | 임계값·가중치·미국 유니버스·한국 워치리스트(수동 INPUT)·해자 태그 |
 | `data.py` | LIVE 수집 (yfinance / pykrx) + 디스크 캐시 |
 | `screening.py` | Dhandho 지표·점수·플래그 계산, `build_universe()` |
-| `app.py` | Streamlit 대시보드 (필터·KPI·테이블·차트·레이더·스냅샷 diff) |
+| `app.py` | Streamlit 대시보드 (필터·KPI·테이블·차트·레이더·스냅샷 diff). URL에 `?admin=1` 이면 관리자 페이지로 분기 |
+| `admin_page.py` | 관리자 페이지(`?admin=1` + `ADMIN_PASSWORD`) — 유료 구독자 조회/추가/제거, CLI와 동일 로직 |
 | `snapshot.py` | 주간 스냅샷 + 신규/탈락 diff 생성 (`df` 주입 가능) |
 | `publish.py` | 분석 결과 → `published/screening_data.json` (클라우드용) |
 | `newsletter.py` | 스냅샷 → 무료/유료 뉴스레터 HTML+MD 생성 + Brevo 자동발송(폴백: SMTP) |

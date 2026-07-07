@@ -16,6 +16,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+import admin_page
 import config
 import i18n
 import paid_gate
@@ -23,6 +24,13 @@ import portfolio_io
 import screening
 import tier_display
 import waitlist
+
+# 관리자 페이지: 배포 URL + ?admin=1 로만 진입 — 일반 방문자 사이드바/네비게이션에는 노출되지 않는다.
+# set_page_config 는 스크립트 최초의 Streamlit 명령이어야 하므로 분기 전에 먼저 호출한다.
+if st.query_params.get("admin") is not None:
+    st.set_page_config(page_title="Dhandho Admin", page_icon="🔐", layout="centered")
+    admin_page.render()
+    st.stop()
 
 st.set_page_config(page_title="Dhandho Value Screener", page_icon="🏰", layout="wide")
 

@@ -374,3 +374,12 @@ def session_secret() -> str:
     (안전한 기본값) 로그인은 지금처럼 브라우저 세션 안에서만 유지된다."""
     return (_os.environ.get("SESSION_SECRET", "").strip()
             or str(_load_secrets().get("session_secret", "")).strip())
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 7) 관리자 페이지 (배포된 URL에 ?admin=1 로 접근, 로컬 스크립트 실행 불필요)
+# ──────────────────────────────────────────────────────────────────────────
+def admin_password() -> str:
+    """관리자 페이지(앱 URL + ?admin=1) 접근 비밀번호. 미설정 시 관리자 페이지 자체가 비활성화된다."""
+    return (_os.environ.get("ADMIN_PASSWORD", "").strip()
+            or str(_load_secrets().get("admin_password", "")).strip())

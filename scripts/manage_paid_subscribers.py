@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""관리자용: 유료 구독자를 Brevo 유료 리스트(brevo_paid_list_id)에 직접 추가/제거/조회한다.
+"""관리자용 CLI: 유료 구독자를 Brevo 유료 리스트(brevo_paid_list_id)에 직접 추가/제거/조회한다.
 
-결제 자동화(Stripe/Polar → webhook/)를 아직 붙이기 전, 관리자가 직권으로 유료 구독자를
-등록하거나 현재 명단을 확인할 때 쓴다. 자동화를 붙인 뒤에도 수동 보정용으로 계속 쓸 수 있다.
+같은 기능을 로컬 실행 없이 쓰려면 배포된 대시보드 URL에 ?admin=1 을 붙인 관리자 페이지
+(admin_page.py)를 쓰면 된다 — 둘 다 paid_gate.list_paid_subscribers/add_paid_subscriber/
+remove_paid_subscribers 를 그대로 호출하므로 결과가 어긋나지 않는다. 이 스크립트는 스크립팅/
+일괄 등록처럼 로컬 CLI가 더 편한 경우를 위한 보조 경로로 남겨둔다.
 
 Usage:
   .venv/bin/python scripts/manage_paid_subscribers.py list
@@ -10,30 +12,26 @@ Usage:
   .venv/bin/python scripts/manage_paid_subscribers.py remove <email> [email2 ...]
 """
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import brevo  # noqa: E402
 import config  # noqa: E402
+import paid_gate  # noqa: E402
 import waitlist  # noqa: E402
 
 
-def _key_and_list():
-    key = config.brevo_api_key()
-    list_id = config.brevo_paid_list_id()
-    if not key or not list_id:
+def _check_configured() -> bool:
+    if not config.brevo_api_key() or not config.brevo_paid_list_id():
         print("brevo_api_key / brevo_paid_list_id 미설정")
-        return None, None
-    return key, list_id
+        return False
+    return True
 
 
 def cmd_list() -> int:
-    key, list_id = _key_and_list()
-    if not key:
+    if not _check_configured():
         return 1
-    contacts = brevo.list_contacts_in_list(list_id, key)
+    contacts = paid_gate.list_paid_subscribers()
     if not contacts:
         print("유료 구독자 없음.")
         return 0
@@ -48,8 +46,7 @@ def cmd_list() -> int:
 
 
 def cmd_add(emails: list) -> int:
-    key, list_id = _key_and_list()
-    if not key:
+    if not _check_configured():
         return 1
     ok_count = 0
     for raw in emails:
@@ -57,10 +54,7 @@ def cmd_add(emails: list) -> int:
         if not waitlist.is_valid_email(email):
             print(f"  ⚠️  {raw} — 이메일 형식이 아니라 건너뜀")
             continue
-        ok = brevo.add_contact_to_list(email, list_id, {
-            "SOURCE": "admin manual add",
-            "JOINED_AT": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        }, key)
+        ok = paid_gate.add_paid_subscriber(email)
         print(f"  {'✅' if ok else '❌'} {email}")
         ok_count += 1 if ok else 0
     print(f"{ok_count}/{len(emails)}명 추가 완료.")
@@ -68,11 +62,9 @@ def cmd_add(emails: list) -> int:
 
 
 def cmd_remove(emails: list) -> int:
-    key, list_id = _key_and_list()
-    if not key:
+    if not _check_configured():
         return 1
-    emails = [e.strip().lower() for e in emails]
-    result = brevo.remove_contacts_from_list(list_id, emails, key)
+    result = paid_gate.remove_paid_subscribers(emails)
     outcome = result.get("contacts", result)
     for email in outcome.get("success", []):
         print(f"  ✅ {email}")
