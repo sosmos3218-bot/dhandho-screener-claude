@@ -59,7 +59,11 @@ pinned: false
   ```
   yfinance/pykrx로 실제 존재하는 종목인지 검증한 뒤에만 `US_UNIVERSE`/`KR_WATCHLIST`/`JP_UNIVERSE`에
   추가한다. 한국 종목은 해자(moat_tag)를 자동 추정하지 않고 `"none"` + `TODO` 주석으로 남겨 사람이
-  나중에 검증하도록 한다. `--apply` 후에는 `git diff`로 확인하고 커밋/푸시할 것.
+  나중에 검증하도록 한다. 로컬 `--apply` 후에는 `git diff`로 확인하고 커밋/푸시할 것.
+  **자동화**: `.github/workflows/universe-requests.yml`가 (1) 매주 주간 스캔 직후 dry-run 리포트를
+  Actions 요약에 남기고, (2) 수동 실행(`Run workflow → apply=true`) 시 신규 티커를 `config.py`에
+  넣어 **PR을 연다**(직접 push 아님). 사람이 PR diff를 검토·머지하면, 다음 실행에서 해당 요청자에게
+  자동으로 추가 안내 메일이 발송된다(2단계 — 머지 전 잘못된 안내를 막기 위함).
   ⚠️ Brevo는 스키마에 없는 커스텀 속성을 조용히 무시한다 — 새 Brevo 계정으로 다시 설정할 때는
   `scripts/ensure_brevo_attributes.py`를 한 번 실행해 `REQUESTED_TICKER`/`JOINED_AT`/`EARLYBIRD`/
   `PROCESSED`/`VALIDATION` 속성 스키마를 먼저 만들어야 한다.

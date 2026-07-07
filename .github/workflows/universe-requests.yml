@@ -1,0 +1,106 @@
+# 유니버스 추가 요청 처리 — 사용자가 포트폴리오 건강검진에서 요청한 미포함 종목을
+# 검토하고 config.py에 반영한다. (요청 수집: waitlist.request_ticker → Brevo 리스트)
+#
+# 두 가지 실행:
+#   1) 주간 예약(schedule) / 수동(apply=false): dry-run 리포트만.
+#      대기 중인 요청을 Actions 요약(Job Summary)에 출력. config.py·Brevo 무변경 → 완전 안전.
+#   2) 수동(apply=true): 신규 유효 티커를 config.py에 편집하고 PR을 연다(직접 push 아님).
+#      사람이 diff를 검토·머지하면, 다음 실행에서 요청자에게 자동 안내된다(2단계, 스크립트 docstring 참고).
+#
+# [필요한 GitHub Secrets]
+#   BREVO_API_KEY, BREVO_UNIVERSE_LIST_ID, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
+
+name: universe-requests
+
+on:
+  schedule:
+    # 월요일 09:00 KST = 일요일 24:00 UTC → 주간 전체 스캔(weekly, 23:00 UTC) 직후에 리포트.
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "config.py에 실제 반영하고 PR을 열지 (false=리포트만)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: universe-requests
+  cancel-in-progress: false
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      BREVO_UNIVERSE_LIST_ID: ${{ secrets.BREVO_UNIVERSE_LIST_ID }}
+      BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+      BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
+      APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply == true }}
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 의존성 설치
+        run: pip install --quiet -r requirements.txt
+
+      - name: 요청 처리 (리포트 또는 apply)
+        run: |
+          {
+            echo "## 유니버스 추가 요청 처리 결과"
+            echo ""
+            echo '```'
+            if [ "$APPLY" = "true" ]; then
+              python scripts/process_universe_requests.py --apply
+            else
+              python scripts/process_universe_requests.py
+            fi
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: config.py 변경 시 PR 생성/갱신
+        if: ${{ env.APPLY == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet config.py; then
+            echo "ℹ️ config.py 변경 없음 — PR 생략 (신규 반영 대상 없음)"
+            exit 0
+          fi
+
+          BRANCH="auto/universe-requests"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add config.py
+          git commit -m "config: 사용자 요청 종목 유니버스 추가 (자동)"
+          git push -f origin "$BRANCH"
+
+          cat > /tmp/pr-body.md <<'EOF'
+          포트폴리오 건강검진에서 사용자가 요청한 종목을 `process_universe_requests.py --apply`가 검증 후 추가했습니다.
+
+          **머지 전 확인**
+          - 추가된 티커가 의도한 종목인지 (특히 한국 종목명)
+          - 한국 종목의 `moat_tag`는 `"none"`(+ TODO 주석)으로 들어갑니다 — 나중에 사람이 검증·갱신하세요.
+
+          머지하면 다음 `universe-requests` 실행에서 요청자에게 자동으로 추가 안내 메일이 발송됩니다.
+          EOF
+
+          # 이미 열린 PR이 있으면 force-push로 갱신됨 → 새로 만들지 않음
+          if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr create --head "$BRANCH" --base main \
+              --title "유니버스 추가 요청 반영 (자동)" \
+              --body-file /tmp/pr-body.md \
+              || echo "⚠️ PR 생성 실패 (이미 존재하거나 권한 문제) — 브랜치 $BRANCH 는 갱신됨"
+          else
+            echo "ℹ️ 기존 PR을 force-push로 갱신했습니다."
+          fi
