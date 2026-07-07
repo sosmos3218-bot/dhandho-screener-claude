@@ -492,7 +492,6 @@ if quick_go:
         st.warning("티커를 입력해 주세요.")
     else:
         st.session_state["quick_diagnose_ticker"] = t
-        st.session_state.pop("universe_req_result", None)
 
 quick_bad_ticker = st.session_state.get("quick_diagnose_ticker")
 if quick_bad_ticker:
@@ -504,11 +503,10 @@ if quick_bad_ticker:
             "universe_req_email", placeholder=i18n.t("signup_email_placeholder"),
             label_visibility="collapsed", key="universe_req_email")
         req_go = rq2.button(i18n.t("universe_request_button"), key="universe_req_btn")
+        # 제출 직후에만 결과 배너를 띄운다(세션에 저장하지 않음) — 이메일을 수정만 하고
+        # 재제출하지 않았는데도 이전 성공/실패 배너가 남아 오해를 주는 것을 방지.
         if req_go:
             ok, code = waitlist.request_ticker(req_email, quick_bad_ticker)
-            st.session_state["universe_req_result"] = (ok, code)
-        if "universe_req_result" in st.session_state:
-            ok, code = st.session_state["universe_req_result"]
             (st.success if ok else st.error)(i18n.t(_MSG_KEY.get(code, "msg_error")))
 
 st.markdown("---")

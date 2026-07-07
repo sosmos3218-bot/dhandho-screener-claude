@@ -68,7 +68,9 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: config.py 변경 시 PR 생성/갱신
-        if: ${{ env.APPLY == 'true' }}
+        # success() 를 명시해야 한다: 커스텀 if: 는 GitHub Actions 의 암묵적 success() 가드를
+        # 제거하므로, 앞 단계(--apply)가 실패해도 이 스텝이 실행돼 부분/실패 상태로 PR을 여는 것을 막는다.
+        if: ${{ success() && env.APPLY == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

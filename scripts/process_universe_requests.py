@@ -29,6 +29,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -148,20 +149,61 @@ def validate_jp(ticker: str):
     return {"name": r.get("name") or ticker}
 
 
+def _kr_suffix_by_market_list(code: str) -> str:
+    """pykrx 시장 명단으로 KOSPI=.KS / KOSDAQ=.KQ 판별(휴장일 대비 최근 영업일 탐색). 실패 시 .KS.
+    이 엔드포인트는 환경/일자에 따라 빈 값을 반환하기도 하므로 보조 수단으로만 쓴다."""
+    try:
+        from pykrx import stock
+        for d in range(7):
+            day = (datetime.now() - timedelta(days=d)).strftime("%Y%m%d")
+            kosdaq = stock.get_market_ticker_list(day, market="KOSDAQ")
+            if kosdaq:
+                return ".KQ" if code in set(kosdaq) else ".KS"
+    except Exception:
+        pass
+    return ".KS"
+
+
+def _looks_like_real_name(name, code: str) -> bool:
+    """yfinance가 '미상장 suffix'에 대해 돌려주는 쓰레기 이름(코드/펀드ID를 쉼표로 이어붙인 값,
+    예: '247540.KS,0P0001GZPV,623889')을 걸러 진짜 종목명만 통과시킨다."""
+    if not isinstance(name, str):
+        return False
+    n = name.strip()
+    if not n:
+        return False
+    return code not in n and "," not in n and not n.endswith((".KS", ".KQ"))
+
+
 def validate_kr(code: str):
+    """pykrx가 종목명을 알면 실존하는 유효 종목으로 인정한다. 가격은 실제 스캔에서 pykrx로
+    조달하므로(data.fetch_kr) yfinance 결측이어도 무효가 아니다 — yfinance 가격만으로 거르면
+    yfinance 결측이 잦은 KOSDAQ 정상 종목이 조용히 버려진다(config.py:176 참고).
+    yf suffix는 '정상 이름을 주는' 쪽을 우선 채택한다: yfinance는 오답 suffix에도 price를
+    붙인 엉뚱한 증권을 돌려주므로(예: KOSDAQ 종목의 .KS), price 유무가 아니라 이름 품질로 고른다."""
     name = None
     try:
         from pykrx import stock
         name = stock.get_market_ticker_name(code)
     except Exception:
         pass
-    if not name:
+    # pykrx는 미상장/무효 코드에 대해 예외 대신 비문자열(빈 DataFrame 등)을 돌려주기도 하므로
+    # 반드시 유효한 문자열인지 확인한다 — 아니면 무효로 처리(6자리 무효코드가 전체 실행을 깨지 않게).
+    if not isinstance(name, str) or not name.strip():
         return None
+    name = name.strip()
+
+    good = []
     for suffix in (".KS", ".KQ"):
         r = data.fetch_us(f"{code}{suffix}", use_cache=False)
-        if not r.get("error") and r.get("price"):
-            return {"name": name, "yf": f"{code}{suffix}"}
-    return None
+        if not r.get("error") and _looks_like_real_name(r.get("name"), code):
+            good.append(suffix)
+    if len(good) == 1:
+        suffix = good[0]
+    else:
+        # 애매(둘 다 정상이거나 둘 다 불명) → 시장 명단으로 판별, 그래도 안 되면 .KS
+        suffix = _kr_suffix_by_market_list(code)
+    return {"name": name, "yf": f"{code}{suffix}"}
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -183,7 +225,7 @@ def apply_to_config(market: str, ticker: str, info: dict) -> None:
         end = text.index("\n}", start)
         insertion = (
             f'\n    "{ticker}": {{"name": "{info["name"]}", "yf": "{info["yf"]}", "moat_tag": "none"}},'
-            f"  # TODO: 해자 태그 검증 필요 (자동 추가됨, 사용자 요청)"
+            f"  # TODO: 해자 태그·종목명·yf suffix(.KS/.KQ) 검증 필요 (자동 추가됨, 사용자 요청)"
         )
         text = text[:end] + insertion + text[end:]
     else:
