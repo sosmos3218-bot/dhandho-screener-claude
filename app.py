@@ -270,8 +270,6 @@ C = dict(zip(
      "de", "ndebitda", "roic", "gm", "pe", "pb", "ey", "downside", "passes"),
     col_labels,
 ))
-show.insert(3, i18n.t("col_detail"), "🔎")  # 종목명 우측 — 클릭 가능함을 알리는 시각적 단서
-
 # 반투명 오버레이 색상 사용 — 라이트/다크 테마 어느 배경 위에서도 자연스럽게 얹힌다.
 def hl_pass(v):
     return "background-color:rgba(46,204,113,0.28);font-weight:bold" if v else ""
@@ -300,11 +298,7 @@ sty = (show.style.format(fmt_map, na_rep="—")
        .map(hl_pass, subset=[C["passes"]])
        .map(hl_score, subset=[C["dhandho"]])
        .map(hl_moat, subset=[C["moat"]]))
-table_event = st.dataframe(
-    sty, width="stretch", hide_index=True, height=560,
-    on_select="rerun", selection_mode="single-row", key="screening_table",
-)
-st.caption(i18n.t("detail_hint"))
+st.dataframe(sty, width="stretch", hide_index=True, height=560)
 st.caption(i18n.t("table_legend"))
 
 if not IS_PAID:
@@ -321,11 +315,23 @@ if IS_PAID:
         mime="text/csv",
     )
 
-# 종목 클릭 시 인라인 상세(레이더 차트 등) — view_df 는 이미 무료/유료 티어로 걸러진 상태라
+# 종목 선택 시 인라인 상세(레이더 차트 등) — view_df 는 이미 무료/유료 티어로 걸러진 상태라
 # 자유 티어에서도 미리보기 구간(6~10위)에 대해서만 상세를 볼 수 있다.
-selected_rows = (table_event.selection.rows if table_event and table_event.selection else [])
-if selected_rows and selected_rows[0] < len(view_df):
-    row = view_df.iloc[selected_rows[0]]
+st.caption(i18n.t("detail_hint"))
+if len(view_df):
+    detail_idx = st.selectbox(
+        i18n.t("detail_select_label"),
+        options=list(range(len(view_df))),
+        format_func=lambda i: f"[{view_df.iloc[i]['market']}] {view_df.iloc[i]['name']} · {view_df.iloc[i]['ticker']}",
+        index=None,
+        placeholder=i18n.t("detail_select_placeholder"),
+        key="detail_select",
+    )
+else:
+    detail_idx = None
+
+if detail_idx is not None:
+    row = view_df.iloc[detail_idx]
     with st.container(border=True):
         rc1, rc2 = st.columns([1, 1])
         with rc1:

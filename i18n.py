@@ -216,11 +216,20 @@ _S = {
     "col_ey": {"ko": "이익수익률%", "en": "Earnings yield%", "ja": "益回り%"},
     "col_downside": {"ko": "하방방어", "en": "Downside score", "ja": "下方防御"},
     "col_passes": {"ko": "통과", "en": "Pass", "ja": "通過"},
-    "col_detail": {"ko": "🔍 상세", "en": "🔍 Detail", "ja": "🔍 詳細"},
     "detail_hint": {
-        "ko": "💡 표에서 행을 클릭하면 아래에 종목 상세(4축 레이더 차트 등)가 표시됩니다.",
-        "en": "💡 Click a row in the table to see stock detail (4-axis radar chart, etc.) below.",
-        "ja": "💡 表の行をクリックすると、下に銘柄詳細（4軸レーダーチャートなど）が表示されます。",
+        "ko": "💡 아래에서 종목을 선택하면 상세(4축 레이더 차트 등)가 표시됩니다.",
+        "en": "💡 Select a stock below to see its detail (4-axis radar chart, etc.).",
+        "ja": "💡 下で銘柄を選択すると、詳細（4軸レーダーチャートなど）が表示されます。",
+    },
+    "detail_select_label": {
+        "ko": "🔎 상세 볼 종목 선택",
+        "en": "🔎 Select a stock for details",
+        "ja": "🔎 詳細を見る銘柄を選択",
+    },
+    "detail_select_placeholder": {
+        "ko": "종목을 선택하세요",
+        "en": "Choose a stock…",
+        "ja": "銘柄を選択してください",
     },
     "detail_summary": {
         "ko": "**Dhandho 종합 {score}** · 하방방어 {downside} · 해자 `{moat}`",
