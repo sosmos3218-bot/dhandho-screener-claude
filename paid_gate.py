@@ -40,8 +40,23 @@ OTP_TTL_MINUTES = 10
 SESSION_TTL_DAYS = 7
 
 
+def is_expired(expires_at) -> bool:
+    """EXPIRES_AT 속성(YYYY-MM-DD, 관리자가 한시적 접근을 부여할 때만 존재)이 오늘(UTC)보다
+    과거면 True. 값이 없거나(=영구, 예: Stripe 구독자) 파싱 불가면 False로 처리 — 형식 문제로
+    유료 고객을 실수로 잠그는 일이 없도록 '해석 불가 = 만료 안 됨'으로 안전하게 기운다.
+    만료일 당일까지는 유효하다(오늘 > 만료일 일 때만 만료)."""
+    if not expires_at:
+        return False
+    try:
+        exp = datetime.strptime(str(expires_at).strip()[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return False
+    return datetime.now(timezone.utc).date() > exp
+
+
 def is_paid_email(email: str) -> bool:
-    """Brevo 유료 리스트에 해당 이메일이 있으면 True. 미설정/조회 실패 시 False(안전한 기본값)."""
+    """Brevo 유료 리스트에 있고 (만료일이 없거나 아직 안 지났으면) True. 미설정/조회 실패/만료 시
+    False(안전한 기본값). 만료 강제는 여기 한 곳에서만 하므로 verify_session_token 도 자동 적용된다."""
     email = (email or "").strip().lower()
     if not email:
         return False
@@ -59,7 +74,9 @@ def is_paid_email(email: str) -> bool:
         return False  # 404(연락처 없음) 포함 — 조회 실패는 모두 미유료로 안전하게 처리
     except Exception:
         return False
-    return int(list_id) in (data.get("listIds") or [])
+    if int(list_id) not in (data.get("listIds") or []):
+        return False
+    return not is_expired((data.get("attributes") or {}).get("EXPIRES_AT"))
 
 
 def send_login_otp(email: str) -> tuple:
@@ -149,8 +166,9 @@ def list_paid_subscribers() -> list:
     return brevo.list_contacts_in_list(list_id, key)
 
 
-def add_paid_subscriber(email: str) -> bool:
-    """유료 구독자를 직권으로 추가. 이메일 형식이 아니거나 미설정이면 False."""
+def add_paid_subscriber(email: str, expires_at: str = "") -> bool:
+    """유료 구독자를 직권으로 추가. 이메일 형식이 아니거나 미설정이면 False.
+    expires_at("YYYY-MM-DD")를 주면 그날까지만 유효한 한시적 접근이 된다(비우면 영구)."""
     email = (email or "").strip().lower()
     if not waitlist.is_valid_email(email):
         return False
@@ -158,10 +176,14 @@ def add_paid_subscriber(email: str) -> bool:
     list_id = config.brevo_paid_list_id()
     if not key or not list_id:
         return False
-    return brevo.add_contact_to_list(email, list_id, {
+    attributes = {
         "SOURCE": "admin manual add",
         "JOINED_AT": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }, key)
+    }
+    expires_at = (expires_at or "").strip()
+    if expires_at:
+        attributes["EXPIRES_AT"] = expires_at
+    return brevo.add_contact_to_list(email, list_id, attributes, key)
 
 
 def remove_paid_subscribers(emails: list) -> dict:

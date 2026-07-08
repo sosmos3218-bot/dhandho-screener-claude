@@ -24,6 +24,8 @@ ATTRIBUTES = {
     "REQUESTED_TICKER": "text",
     "PROCESSED": "boolean",
     "VALIDATION": "text",
+    "SOURCE": "text",       # 유료 구독자 출처(예: "admin manual add") — 미등록 시 조용히 버려짐
+    "EXPIRES_AT": "text",   # 관리자 한시적 접근 부여용 만료일(YYYY-MM-DD) — paid_gate.is_expired
 }
 
 

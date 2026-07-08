@@ -55,7 +55,14 @@ pinned: false
     URL을 알아도 **`ADMIN_PASSWORD`** 비밀번호를 통과해야 기능이 보인다. 비밀번호 설정:
     `python3 -c "import secrets; print(secrets.token_urlsafe(16))"` → `secrets.json`의 `admin_password`
     또는 `ADMIN_PASSWORD` 환경변수(클라우드 배포용, HF Spaces Settings→Secrets)에 등록. 미설정 시
-    관리자 페이지 자체가 비활성화된다.
+    관리자 페이지 자체가 비활성화된다. 기능: 명단 조회(이메일 **검색** + **CSV 내려받기**),
+    직접 추가/**CSV 일괄 업로드**(둘 다 **만료일** 선택 지정 가능), 제거.
+  - **한시적 접근(만료일)**: 추가 시 만료일(`EXPIRES_AT`, YYYY-MM-DD)을 지정하면 그날까지만 접근이
+    유효하다(예: 체험판·수동 환불 유예). 비우면 영구(Stripe 구독자는 항상 영구). `paid_gate.is_paid_email`이
+    리스트 멤버십과 함께 만료일을 검사하므로(만료일 없음=영구, 파싱 불가=영구로 안전하게 처리) 만료된
+    구독자는 쿠키가 남아 있어도 다음 요청에서 즉시 차단된다 — 별도 스케줄러가 필요 없다. `EXPIRES_AT`는
+    커스텀 속성이라 **`scripts/ensure_brevo_attributes.py`를 한 번 실행**해 스키마를 등록해 둬야 저장된다
+    (미등록 커스텀 속성은 Brevo가 조용히 무시).
   - **로컬 CLI**(스크립팅/일괄 등록에 편리):
     ```bash
     .venv/bin/python scripts/manage_paid_subscribers.py list                 # 현재 유료 구독자 조회
