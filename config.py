@@ -383,3 +383,36 @@ def admin_password() -> str:
     """관리자 페이지(앱 URL + ?admin=1) 접근 비밀번호. 미설정 시 관리자 페이지 자체가 비활성화된다."""
     return (_os.environ.get("ADMIN_PASSWORD", "").strip()
             or str(_load_secrets().get("admin_password", "")).strip())
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 8) 유료 플랜 홍보 (유사투자자문업 신고 전 기본 꺼짐)
+#    신고 완료 후 PAID_PROMO_ENABLED=1 로 켠다. 켜져 있을 때의 할인 문구는
+#    기간 한정(첫 12개월, EARLYBIRD_DEADLINE)만 허용한다.
+# ──────────────────────────────────────────────────────────────────────────
+_PROMO_ON = {"1", "true", "yes", "on"}
+_EARLYBIRD_DEADLINE_PLACEHOLDER = "YYYY-MM-DD"
+
+
+def paid_promo_enabled() -> bool:
+    """유료판 얼리버드 안내와 대기 신청을 화면에 낼지.
+
+    환경변수 PAID_PROMO_ENABLED 가 있으면 그것만 보고, 없으면 secrets.json 의
+    paid_promo_enabled 를 본다. 둘 다 없으면 False.
+    """
+    raw = _os.environ.get("PAID_PROMO_ENABLED", "").strip()
+    if not raw:
+        raw = str(_load_secrets().get("paid_promo_enabled", "")).strip()
+    return raw.lower() in _PROMO_ON
+
+
+def earlybird_deadline() -> str:
+    """기간 한정 할인 신청 마감일 표시 문자열. 오너가 실제 날짜로 바꾼다.
+
+    환경변수 EARLYBIRD_DEADLINE, secrets.json earlybird_deadline 순.
+    비어 있으면 'YYYY-MM-DD' 자리표시자를 그대로 보여 준다.
+    """
+    raw = _os.environ.get("EARLYBIRD_DEADLINE", "").strip()
+    if not raw:
+        raw = str(_load_secrets().get("earlybird_deadline", "")).strip()
+    return raw or _EARLYBIRD_DEADLINE_PLACEHOLDER

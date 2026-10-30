@@ -165,22 +165,24 @@ _S = {
     },
     # ── 구독 신청 ─────────────────────────────────────────────────────────
     "signup_header": {"ko": "📬 뉴스레터 구독 신청", "en": "📬 Subscribe to the newsletter", "ja": "📬 ニュースレター購読申込"},
-    "signup_body": {
+    "signup_body_free": {
         "ko": "**무료 구독**: 매주 스크리닝 결과 요약을 이메일로 받아보세요 (지금 통과 종목 중 "
-              "**{rank}** 미리보기 수준의 무료판 뉴스레터).\n\n"
-              "**유료판 얼리버드**: 유료판에서는 **조건 통과 종목 전체·CSV 다운로드·"
-              "전주 대비 변화 추적**까지 제공합니다. **지금 등록하시면 정식 가격의 50% 평생 할인**을 "
-              "적용해 드립니다(선착순 100명).",
+              "**{rank}** 미리보기 수준의 무료판 뉴스레터).",
         "en": "**Free subscription**: Get a weekly summary of screening results by email (same preview "
-              "level as the free tier: **{rank}**).\n\n"
-              "**Paid early-bird**: The paid tier provides **the full list of passing stocks, CSV "
-              "download, and week-over-week change tracking**. **Sign up now and get 50% off the "
-              "launch price for life** (limited to the first 100 people).",
+              "level as the free tier: **{rank}**).",
         "ja": "**無料購読**：毎週のスクリーニング結果サマリーをメールでお届けします（現在通過中の銘柄のうち"
-              "**{rank}**のプレビュー水準の無料版ニュースレター）。\n\n"
-              "**有料版アーリーバード**：有料版では**条件通過銘柄の全リスト・CSVダウンロード・"
-              "前週比の変化トラッキング**まで提供します。**今登録すると正式価格の50%永久割引**が"
-              "適用されます（先着100名）。",
+              "**{rank}**のプレビュー水準の無料版ニュースレター）。",
+    },
+    "signup_body_paid": {
+        "ko": "**유료판 얼리버드**: 유료판에서는 조건 통과 종목 전체, CSV 다운로드, "
+              "전주 대비 변화 추적을 제공합니다. **첫 12개월 50% 할인, 신청 기한({deadline}) 내 "
+              "가입자 한정**입니다. 기한 이후 가입에는 이 할인이 적용되지 않습니다.",
+        "en": "**Paid early-bird**: The paid tier includes the full list of passing stocks, CSV "
+              "download, and week-over-week change tracking. **50% off for the first 12 months, "
+              "only for signups by {deadline}.** The discount does not apply after that date.",
+        "ja": "**有料版アーリーバード**：有料版では条件通過銘柄の全リスト、CSVダウンロード、"
+              "前週比の変化トラッキングを提供します。**最初の12ヶ月50%割引、申込期限({deadline})までの"
+              "登録者限定**です。期限後の登録にはこの割引は適用されません。",
     },
     "signup_free_option": {"ko": "무료 구독", "en": "Free subscription", "ja": "無料購読"},
     "signup_waitlist_option": {"ko": "유료판 얼리버드 대기", "en": "Paid early-bird waitlist", "ja": "有料版アーリーバード待機"},
@@ -204,9 +206,17 @@ _S = {
         "ja": "無料ニュースレターの購読が完了しました — 毎週新しいスクリーニング結果をお届けします。",
     },
     "msg_success_waitlist": {
-        "ko": "얼리버드 대기자로 등록되었습니다 — 유료판 출시 시 평생 할인가로 안내드립니다.",
-        "en": "You're on the early-bird waitlist — we'll notify you with a lifetime discount when the paid tier launches.",
-        "ja": "アーリーバード待機リストに登録されました — 有料版リリース時に永久割引価格でご案内します。",
+        "ko": "얼리버드 대기자로 등록되었습니다. 유료판 출시 시 첫 12개월 50% 할인"
+              "(신청 기한 {deadline} 내 가입자 한정)으로 안내드립니다.",
+        "en": "You're on the early-bird waitlist. When the paid tier launches, signups made by "
+              "{deadline} get 50% off for the first 12 months.",
+        "ja": "アーリーバード待機リストに登録されました。有料版の公開時、申込期限({deadline})までの"
+              "登録者に限り最初の12ヶ月50%割引でご案内します。",
+    },
+    "msg_promo_disabled": {
+        "ko": "유료판 안내는 아직 열리지 않았습니다. 무료 구독은 신청할 수 있습니다.",
+        "en": "Paid-plan signup isn't open yet. You can still subscribe to the free newsletter.",
+        "ja": "有料版のご案内はまだ開始していません。無料購読はお申し込みいただけます。",
     },
     "msg_success_universe_request": {
         "ko": "요청이 접수되었습니다 — 검토 후 분석 대상에 추가되면 안내드립니다.",

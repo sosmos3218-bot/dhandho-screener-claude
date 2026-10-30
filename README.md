@@ -69,8 +69,12 @@ pinned: false
     .venv/bin/python scripts/manage_paid_subscribers.py add <이메일...>       # 직권 등록
     .venv/bin/python scripts/manage_paid_subscribers.py remove <이메일...>    # 제거
     ```
-- **구독 신청 폼**(대시보드 상단): 무료 뉴스레터 구독과 유료판 얼리버드 대기(평생 할인)를 한 폼에서 선택해
-  신청할 수 있다(`waitlist.py`) — 각각 Brevo `BREVO_FREE_LIST_ID`/`BREVO_WAITLIST_LIST_ID` 리스트에 등록된다.
+- **구독 신청 폼**(대시보드 상단): 무료 뉴스레터 구독은 Brevo `BREVO_FREE_LIST_ID`에 등록된다(`waitlist.py`).
+  랜딩 URL의 `utm_source`, `utm_medium`, `utm_campaign`(그리고 `utm_content`, `utm_term`)은 첫 유입 기준으로
+  쿠키에 90일 보존된다. 다른 화면에서 신청해도 Brevo 속성 `UTM_SOURCE`, `UTM_MEDIUM`, `UTM_CAMPAIGN`,
+  `UTM_CONTENT`, `UTM_TERM`과 `SOURCE`(`utm_source` 값, 없으면 `direct`)로 저장된다.
+  유료판 얼리버드 대기 신청은 `PAID_PROMO_ENABLED`가 켜져 있을 때만 노출된다(기본 꺼짐. 유사투자자문업 신고 전에는 켜지 않는다).
+  켜면 할인 안내는 기간 한정(첫 12개월 50%, 마감일은 `EARLYBIRD_DEADLINE`)이고, 대기자는 `BREVO_WAITLIST_LIST_ID`에 등록된다.
 - **결제 자동화(Polar/Stripe → Brevo)**: `webhook/`의 Cloudflare Worker가 결제 완료 웹훅을 받아
   구매자 이메일을 Brevo 유료 리스트에 자동으로 추가한다 — `secrets.json`을 구독자마다 수동으로 고칠 필요가 없다.
   설정 방법은 [`webhook/README.md`](webhook/README.md) 참고. 미설정 시에는 `secrets.json`의
@@ -96,7 +100,8 @@ pinned: false
   자동으로 추가 안내 메일이 발송된다(2단계 — 머지 전 잘못된 안내를 막기 위함).
   ⚠️ Brevo는 스키마에 없는 커스텀 속성을 조용히 무시한다 — 새 Brevo 계정으로 다시 설정할 때는
   `scripts/ensure_brevo_attributes.py`를 한 번 실행해 `REQUESTED_TICKER`/`JOINED_AT`/`EARLYBIRD`/
-  `PROCESSED`/`VALIDATION` 속성 스키마를 먼저 만들어야 한다.
+  `PROCESSED`/`VALIDATION`/`SOURCE`/`UTM_SOURCE`/`UTM_MEDIUM`/`UTM_CAMPAIGN`/`UTM_CONTENT`/`UTM_TERM`
+  속성 스키마를 먼저 만들어야 한다.
 
 ## 데이터 출처
 

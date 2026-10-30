@@ -11,7 +11,6 @@ import json
 import os
 import time
 
-import extra_streamlit_components as stx
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -23,6 +22,7 @@ import paid_gate
 import portfolio_io
 import screening
 import tier_display
+import utm_capture
 import waitlist
 
 # 관리자 페이지: 배포 URL + ?admin=1 로만 진입 — 일반 방문자 사이드바/네비게이션에는 노출되지 않는다.
@@ -119,16 +119,18 @@ _OTP_MSG_KEY = {
 _OTP_COOLDOWN_SEC = 30
 _SESSION_COOKIE = "dhandho_session"
 
-# session_secret 미설정 시 이 기능 자체를 건너뛴다 — 로그인은 지금처럼 세션 안에서만 유지된다.
+# 로그인 유지용 세션 쿠키와 가입 UTM 쿠키는 매니저를 하나만 쓴다.
+# UTM 은 서명키와 무관하므로 매니저는 항상 띄우고, 세션 유지는 키가 있을 때만 켠다.
 _session_persist_enabled = bool(config.session_secret())
-_cookie_manager = stx.CookieManager(key="dhandho_cookie_manager") if _session_persist_enabled else None
+_cookie_manager = utm_capture.NullableCookieManager(key="dhandho_cookie_manager")
+utm_capture.remember_first_touch(_cookie_manager, st.query_params)
 
 _verified_email = st.session_state.get("verified_paid_email")
 # 방금 로그아웃한 직후의 rerun 에서는 쿠키 삭제가 브라우저에 아직 반영되지 않았을 수 있어
 # (컴포넌트 왕복이 rerun 전에 끝난다는 보장이 없음) 쿠키 복원을 한 번 건너뛴다 —
 # 안 그러면 지워지기 전의 쿠키로 로그아웃 직후 즉시 재로그인돼 버린다.
 _just_logged_out = st.session_state.pop("_just_logged_out", False)
-if not _verified_email and _cookie_manager and not _just_logged_out:
+if not _verified_email and _session_persist_enabled and not _just_logged_out:
     _restored_email = paid_gate.verify_session_token(_cookie_manager.get(_SESSION_COOKIE) or "")
     if _restored_email:
         st.session_state["verified_paid_email"] = _restored_email
@@ -144,7 +146,7 @@ if _verified_email:
         st.session_state.pop("verified_paid_email", None)
         st.session_state.pop("_otp_state", None)
         st.session_state["_just_logged_out"] = True
-        if _cookie_manager:
+        if _session_persist_enabled:
             _cookie_manager.delete(_SESSION_COOKIE, key="dhandho_cookie_delete")
             # 쿠키 컴포넌트(iframe)가 삭제를 실제로 실행할 시간을 준다 — 바로 rerun 하면
             # 컴포넌트가 마운트되기 전에 DOM이 갈아엎여 삭제가 브라우저에 반영되지 않는다
@@ -186,7 +188,7 @@ else:
                     _logged_in_email = st.session_state["_otp_state"]["email"]
                     st.session_state["verified_paid_email"] = _logged_in_email
                     st.session_state.pop("_otp_state", None)
-                    if _cookie_manager:
+                    if _session_persist_enabled:
                         _token = paid_gate.issue_session_token(_logged_in_email)
                         if _token:
                             _cookie_manager.set(
@@ -283,27 +285,40 @@ else:
 _MSG_KEY = {
     "invalid_email": "msg_invalid_email", "not_configured": "msg_not_configured",
     "error": "msg_error", "success_free": "msg_success_free", "success_waitlist": "msg_success_waitlist",
-    "success_universe_request": "msg_success_universe_request",
+    "success_universe_request": "msg_success_universe_request", "promo_disabled": "msg_promo_disabled",
 }
 
 with st.container(border=True):
     sg1, sg2 = st.columns([2.2, 1])
     with sg1:
         st.markdown(f"#### {i18n.t('signup_header')}")
-        st.markdown(i18n.t("signup_body", rank=i18n.rank_label()))
+        _signup_body = i18n.t("signup_body_free", rank=i18n.rank_label())
+        if config.paid_promo_enabled():
+            _signup_body += "\n\n" + i18n.t(
+                "signup_body_paid", deadline=config.earlybird_deadline())
+        st.markdown(_signup_body)
     with sg2:
+        _promo_on = config.paid_promo_enabled()
         with st.form("signup_form", clear_on_submit=True):
-            sg_intent = st.radio(
-                "signup_intent", ["free", "waitlist"],
-                format_func=lambda v: i18n.t("signup_free_option" if v == "free" else "signup_waitlist_option"),
-                label_visibility="collapsed")
+            if _promo_on:
+                sg_intent = st.radio(
+                    "signup_intent", ["free", "waitlist"],
+                    format_func=lambda v: i18n.t(
+                        "signup_free_option" if v == "free" else "signup_waitlist_option"),
+                    label_visibility="collapsed")
+            else:
+                sg_intent = "free"
             sg_email = st.text_input(
                 "email", placeholder=i18n.t("signup_email_placeholder"), label_visibility="collapsed")
             sg_submit = st.form_submit_button(i18n.t("signup_submit_button"), width="stretch")
         if sg_submit:
             join_fn = waitlist.join_free if sg_intent == "free" else waitlist.join_waitlist
-            ok, code = join_fn(sg_email)
-            (st.success if ok else st.error)(i18n.t(_MSG_KEY[code]))
+            ok, code = join_fn(sg_email, utm_capture.current())
+            if code == "success_waitlist":
+                _msg = i18n.t(_MSG_KEY[code], deadline=config.earlybird_deadline())
+            else:
+                _msg = i18n.t(_MSG_KEY[code])
+            (st.success if ok else st.error)(_msg)
 
 # ──────────────────────────────────────────────────────────────────────────
 # 섹션 1: 스크리닝 결과 (+ 종목 클릭 시 인라인 상세)
