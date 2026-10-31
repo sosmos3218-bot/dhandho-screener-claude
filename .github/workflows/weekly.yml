@@ -65,7 +65,7 @@ jobs:
           fi
 
       - name: published/snapshots 변경분 커밋 → GitHub(origin)
-        if: always()
+        # 스캔, 퍼블리시, 발송이 실패하면 깨진 산출물을 main 에 올리지 않는다.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -78,7 +78,6 @@ jobs:
           fi
 
       - name: Hugging Face Space에도 반영
-        if: always()
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -86,9 +85,21 @@ jobs:
             echo "ℹ️ HF_TOKEN 미설정 — HF Space push 생략 (GitHub 반영은 완료됨)"
             exit 0
           fi
-          git remote add hf "https://sosmos:${HF_TOKEN}@huggingface.co/spaces/sosmos/dhandho-screener" 2>/dev/null \
-            || git remote set-url hf "https://sosmos:${HF_TOKEN}@huggingface.co/spaces/sosmos/dhandho-screener"
-          # 간헐적 일시 오류 대비 최대 3회 재시도(4초 간격)
+          # 토큰을 remote URL 에 넣지 않는다. askpass 가 환경변수만 읽는다.
+          git remote remove hf 2>/dev/null || true
+          git remote add hf "https://huggingface.co/spaces/sosmos/dhandho-screener"
+          ASKPASS=$(mktemp)
+          chmod 700 "$ASKPASS"
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'case "$1" in' \
+            '  *Username*) printf "%s\n" "sosmos" ;;' \
+            '  *) printf "%s\n" "$HF_TOKEN" ;;' \
+            'esac' > "$ASKPASS"
+          export GIT_ASKPASS="$ASKPASS"
+          export GIT_TERMINAL_PROMPT=0
+          cleanup() { rm -f "$ASKPASS"; }
+          trap cleanup EXIT
           for attempt in 1 2 3; do
             git fetch hf main -q || true
             if git push hf HEAD:main; then

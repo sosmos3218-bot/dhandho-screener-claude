@@ -34,7 +34,7 @@ function toHex(buffer) {
   return Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function constantTimeEqual(a, b) {
+export function constantTimeEqual(a, b) {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -49,7 +49,7 @@ function decodeBase64Secret(secret) {
   return bytes;
 }
 
-async function verifyStripeSignature(rawBody, sigHeader, secret) {
+export async function verifyStripeSignature(rawBody, sigHeader, secret) {
   if (!sigHeader) return false;
   const parts = Object.fromEntries(
     sigHeader.split(",").map((kv) => {
@@ -74,10 +74,10 @@ async function verifyStripeSignature(rawBody, sigHeader, secret) {
   const expectedSig = toHex(
     await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${timestamp}.${rawBody}`))
   );
-  return expectedSig === signature;
+  return constantTimeEqual(expectedSig, signature);
 }
 
-async function verifyPolarSignature(rawBody, headers, secret) {
+export async function verifyPolarSignature(rawBody, headers, secret) {
   const webhookId = headers.get("webhook-id");
   const timestamp = headers.get("webhook-timestamp");
   const signatureHeader = headers.get("webhook-signature");

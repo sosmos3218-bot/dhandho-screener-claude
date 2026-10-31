@@ -31,6 +31,28 @@ def request(method: str, path: str, key: str, payload: dict = None, timeout: int
         return json.loads(body.decode("utf-8")) if body else {}
 
 
+def create_double_optin_contact(email: str, list_id: str, attributes: dict,
+                                template_id: str, redirect_url: str, key: str) -> bool:
+    """Brevo double opt-in. 확인 메일의 templateId 와 확인 후 이동할 redirectionUrl 이 필요하다.
+
+    수신자가 메일의 확인을 누르기 전에는 includeListIds 에 들어가지 않는다.
+    """
+    payload = {
+        "email": email,
+        "attributes": attributes,
+        "includeListIds": [int(list_id)],
+        "templateId": int(template_id),
+        "redirectionUrl": redirect_url,
+    }
+    try:
+        request("POST", "/contacts/doubleOptinConfirmation", key, payload)
+        return True
+    except urllib.error.HTTPError as e:
+        return e.code in (200, 201, 204)
+    except Exception:
+        return False
+
+
 def add_contact_to_list(email: str, list_id: str, attributes: dict, key: str) -> bool:
     """컨택을 리스트에 추가(이미 있으면 속성 갱신). 성공 시 True."""
     payload = {"email": email, "listIds": [int(list_id)], "updateEnabled": True, "attributes": attributes}

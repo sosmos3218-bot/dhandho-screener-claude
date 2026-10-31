@@ -11,7 +11,6 @@ import json
 import os
 import time
 
-import extra_streamlit_components as stx
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -21,8 +20,11 @@ import config
 import i18n
 import paid_gate
 import portfolio_io
+import privacy
+import publish
 import screening
 import tier_display
+import utm_capture
 import waitlist
 
 # 관리자 페이지: 배포 URL + ?admin=1 로만 진입 — 일반 방문자 사이드바/네비게이션에는 노출되지 않는다.
@@ -30,6 +32,14 @@ import waitlist
 if st.query_params.get("admin") is not None:
     st.set_page_config(page_title="Dhandho Admin", page_icon="🔐", layout="centered")
     admin_page.render()
+    st.stop()
+
+if st.query_params.get("privacy") is not None:
+    st.set_page_config(page_title="개인정보 처리방침", page_icon="🔒", layout="centered")
+    _privacy_lang = st.query_params.get("lang") or "ko"
+    if _privacy_lang not in ("ko", "en", "ja"):
+        _privacy_lang = "ko"
+    st.markdown(privacy.markdown(_privacy_lang))
     st.stop()
 
 st.set_page_config(page_title="Dhandho Value Screener", page_icon="🏰", layout="wide")
@@ -107,34 +117,41 @@ else:
 
 # ──────────────────────────────────────────────────────────────────────────
 # 무료/유료 티어
+# 유료 홍보가 꺼져 있으면 사이드바의 유료 로그인과 '유료판이 진짜 목록' 문구를 그리지 않는다.
+# 코드는 남기고, PAID_PROMO_ENABLED 가 켜질 때만 다시 보인다.
 # ──────────────────────────────────────────────────────────────────────────
 st.sidebar.markdown("---")
-st.sidebar.markdown(f"**{i18n.t('paid_tier_header')}**")
-
 
 _OTP_MSG_KEY = {
-    "invalid_email": "msg_invalid_email", "not_paid": "paid_email_fail",
-    "not_configured": "paid_otp_error", "error": "paid_otp_error",
+    "invalid_email": "msg_invalid_email",
+    "rate_limited": "paid_otp_cooldown",
+    "not_configured": "paid_otp_error",
+    "error": "paid_otp_error",
 }
-_OTP_COOLDOWN_SEC = 30
 _SESSION_COOKIE = "dhandho_session"
+_promo_on = config.paid_promo_enabled()
 
-# session_secret 미설정 시 이 기능 자체를 건너뛴다 — 로그인은 지금처럼 세션 안에서만 유지된다.
+# 로그인 유지용 세션 쿠키와 가입 UTM 쿠키는 매니저를 하나만 쓴다.
+# UTM 은 서명키와 무관하므로 매니저는 항상 띄우고, 세션 유지는 키가 있을 때만 켠다.
 _session_persist_enabled = bool(config.session_secret())
-_cookie_manager = stx.CookieManager(key="dhandho_cookie_manager") if _session_persist_enabled else None
+_cookie_manager = utm_capture.NullableCookieManager(key="dhandho_cookie_manager")
+utm_capture.remember_first_touch(_cookie_manager, st.query_params)
 
-_verified_email = st.session_state.get("verified_paid_email")
+_verified_email = st.session_state.get("verified_paid_email") if _promo_on else None
 # 방금 로그아웃한 직후의 rerun 에서는 쿠키 삭제가 브라우저에 아직 반영되지 않았을 수 있어
 # (컴포넌트 왕복이 rerun 전에 끝난다는 보장이 없음) 쿠키 복원을 한 번 건너뛴다 —
 # 안 그러면 지워지기 전의 쿠키로 로그아웃 직후 즉시 재로그인돼 버린다.
 _just_logged_out = st.session_state.pop("_just_logged_out", False)
-if not _verified_email and _cookie_manager and not _just_logged_out:
+if not _verified_email and _session_persist_enabled and not _just_logged_out:
     _restored_email = paid_gate.verify_session_token(_cookie_manager.get(_SESSION_COOKIE) or "")
     if _restored_email:
         st.session_state["verified_paid_email"] = _restored_email
         _verified_email = _restored_email
 
-if _verified_email:
+if _promo_on:
+    st.sidebar.markdown(f"**{i18n.t('paid_tier_header')}**")
+
+if _promo_on and _verified_email:
     IS_PAID = True
     st.sidebar.success(i18n.t("paid_unlocked"))
     st.sidebar.caption(i18n.t("paid_logged_in_as", email=_verified_email))
@@ -144,14 +161,14 @@ if _verified_email:
         st.session_state.pop("verified_paid_email", None)
         st.session_state.pop("_otp_state", None)
         st.session_state["_just_logged_out"] = True
-        if _cookie_manager:
+        if _session_persist_enabled:
             _cookie_manager.delete(_SESSION_COOKIE, key="dhandho_cookie_delete")
             # 쿠키 컴포넌트(iframe)가 삭제를 실제로 실행할 시간을 준다 — 바로 rerun 하면
             # 컴포넌트가 마운트되기 전에 DOM이 갈아엎여 삭제가 브라우저에 반영되지 않는다
             # (extra_streamlit_components 의 알려진 동작).
             time.sleep(0.15)
         st.rerun()
-else:
+elif _promo_on:
     _paid_code = st.sidebar.text_input(
         i18n.t("paid_code_label"), type="password", help=i18n.t("paid_code_help"))
     _code_ok = bool(_paid_code) and _paid_code.strip() in config.paid_access_codes()
@@ -167,17 +184,16 @@ else:
         _otp_email = st.sidebar.text_input(
             i18n.t("paid_email_label"), help=i18n.t("paid_email_help"))
         if st.sidebar.button(i18n.t("paid_send_code_button")):
-            now = dt.datetime.now().timestamp()
-            if now - st.session_state.get("_otp_last_sent", 0) < _OTP_COOLDOWN_SEC:
+            ok, result = paid_gate.send_login_otp(_otp_email)
+            if ok and isinstance(result, dict):
+                st.session_state["_otp_state"] = result
+                st.sidebar.success(i18n.t("paid_otp_generic"))
+            elif ok:
+                st.sidebar.success(i18n.t("paid_otp_generic"))
+            elif result == "rate_limited":
                 st.sidebar.warning(i18n.t("paid_otp_cooldown"))
             else:
-                st.session_state["_otp_last_sent"] = now
-                ok, result = paid_gate.send_login_otp(_otp_email)
-                if ok:
-                    st.session_state["_otp_state"] = result
-                    st.sidebar.success(i18n.t("paid_otp_sent"))
-                else:
-                    st.sidebar.error(i18n.t(_OTP_MSG_KEY.get(result, "paid_otp_error")))
+                st.sidebar.error(i18n.t(_OTP_MSG_KEY.get(result, "paid_otp_error")))
 
         if st.session_state.get("_otp_state"):
             _otp_code_input = st.sidebar.text_input(i18n.t("paid_otp_code_label"))
@@ -186,7 +202,7 @@ else:
                     _logged_in_email = st.session_state["_otp_state"]["email"]
                     st.session_state["verified_paid_email"] = _logged_in_email
                     st.session_state.pop("_otp_state", None)
-                    if _cookie_manager:
+                    if _session_persist_enabled:
                         _token = paid_gate.issue_session_token(_logged_in_email)
                         if _token:
                             _cookie_manager.set(
@@ -199,6 +215,11 @@ else:
                     st.sidebar.error(i18n.t("paid_otp_fail"))
         elif not _paid_code:
             st.sidebar.caption(i18n.free_preview_caption())
+else:
+    IS_PAID = False
+
+# 홍보가 꺼져 있으면 통과 목록 전체를 공개 목록으로 보여 준다.
+_full_list = tier_display.shows_full_public_list(_promo_on, IS_PAID)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"**{i18n.t('threshold_header')}**")
@@ -246,6 +267,8 @@ st.title(i18n.t("app_title"))
 _src = (i18n.t("src_published", date=load_published().get('generated_at', '?'))
         if USE_PUBLISHED else i18n.t("src_live"))
 st.caption(i18n.t("app_caption", n=len(df), src=_src))
+if USE_PUBLISHED and publish.is_stale(load_published().get("generated_at")):
+    st.warning(i18n.t("stale_data_warning", date=load_published().get("generated_at", "?")))
 
 passes = df[df["passes"]]
 c1, c2, c3, c4, c5 = st.columns(5)
@@ -257,13 +280,14 @@ c5.metric(i18n.t("kpi_wide_moat"), i18n.t("unit_count", n=(df['moat_tag'] == 'wi
 
 if not len(passes):
     st.info(i18n.t("no_pass_info"))
-elif IS_PAID:
+elif _full_list:
     top = passes.iloc[0]
     st.success(i18n.t(
         "top_candidate_paid", name=top['name'], ticker=top['ticker'],
         score=top['dhandho_score'], fcf=fmt(top['fcf_yield'], '%'),
         roic=fmt(top['roic'], '%'), pe=fmt(top['pe']), moat=top['moat_tag'],
     ))
+    st.caption(i18n.t("list_disclaimer"))
 else:
     preview = tier_display.free_preview_list(passes.to_dict("records"))
     if preview:
@@ -273,6 +297,7 @@ else:
             score=top['dhandho_score'], fcf=fmt(top['fcf_yield'], '%'),
             roic=fmt(top['roic'], '%'), pe=fmt(top['pe']), moat=top['moat_tag'],
         ))
+        st.caption(i18n.t("list_disclaimer"))
         st.caption(i18n.t("top_candidate_free_note", skip=config.FREE_TIER_SKIP))
     else:
         st.info(i18n.t("no_preview_info", rank=i18n.rank_label()))
@@ -283,41 +308,64 @@ else:
 _MSG_KEY = {
     "invalid_email": "msg_invalid_email", "not_configured": "msg_not_configured",
     "error": "msg_error", "success_free": "msg_success_free", "success_waitlist": "msg_success_waitlist",
-    "success_universe_request": "msg_success_universe_request",
+    "success_universe_request": "msg_success_universe_request", "promo_disabled": "msg_promo_disabled",
+    "consent_required": "msg_consent_required",
 }
 
 with st.container(border=True):
     sg1, sg2 = st.columns([2.2, 1])
     with sg1:
         st.markdown(f"#### {i18n.t('signup_header')}")
-        st.markdown(i18n.t("signup_body", rank=i18n.rank_label()))
+        if _promo_on:
+            _signup_body = i18n.t("signup_body_free", rank=i18n.rank_label())
+            _signup_body += "\n\n" + i18n.t(
+                "signup_body_paid", deadline=config.earlybird_deadline())
+        else:
+            _signup_body = i18n.t("signup_body_free_full")
+        st.markdown(_signup_body)
+        st.caption(i18n.t("list_disclaimer"))
+        st.markdown(i18n.t("consent_policy_link"))
     with sg2:
+        _promo_on = config.paid_promo_enabled()
         with st.form("signup_form", clear_on_submit=True):
-            sg_intent = st.radio(
-                "signup_intent", ["free", "waitlist"],
-                format_func=lambda v: i18n.t("signup_free_option" if v == "free" else "signup_waitlist_option"),
-                label_visibility="collapsed")
+            if _promo_on:
+                sg_intent = st.radio(
+                    "signup_intent", ["free", "waitlist"],
+                    format_func=lambda v: i18n.t(
+                        "signup_free_option" if v == "free" else "signup_waitlist_option"),
+                    label_visibility="collapsed")
+            else:
+                sg_intent = "free"
             sg_email = st.text_input(
                 "email", placeholder=i18n.t("signup_email_placeholder"), label_visibility="collapsed")
+            sg_consent = st.checkbox(i18n.t("consent_checkbox"))
             sg_submit = st.form_submit_button(i18n.t("signup_submit_button"), width="stretch")
         if sg_submit:
-            join_fn = waitlist.join_free if sg_intent == "free" else waitlist.join_waitlist
-            ok, code = join_fn(sg_email)
-            (st.success if ok else st.error)(i18n.t(_MSG_KEY[code]))
+            if not sg_consent:
+                ok, code = False, "consent_required"
+            else:
+                join_fn = waitlist.join_free if sg_intent == "free" else waitlist.join_waitlist
+                ok, code = join_fn(sg_email, utm_capture.current(), consent=True)
+            if code == "success_waitlist":
+                _msg = i18n.t(_MSG_KEY[code], deadline=config.earlybird_deadline())
+            else:
+                _msg = i18n.t(_MSG_KEY[code])
+            (st.success if ok else st.error)(_msg)
 
 # ──────────────────────────────────────────────────────────────────────────
 # 섹션 1: 스크리닝 결과 (+ 종목 클릭 시 인라인 상세)
 # ──────────────────────────────────────────────────────────────────────────
 st.divider()
 st.header(i18n.t("tab1"))
-only_pass = st.checkbox(i18n.t("only_pass_checkbox"), value=False, disabled=not IS_PAID)
-if not IS_PAID:
+only_pass = st.checkbox(i18n.t("only_pass_checkbox"), value=False, disabled=not _full_list)
+if not _full_list:
     st.caption(i18n.t("free_preview_notice", rank=i18n.rank_label()))
+st.caption(i18n.t("list_disclaimer"))
 pass_df = df[df["passes"]].sort_values("dhandho_score", ascending=False)
 full_df = pass_df if only_pass else df.sort_values("dhandho_score", ascending=False)
 
 hidden_count = 0
-if IS_PAID:
+if _full_list:
     view_df = full_df
 else:
     preview_idx = pass_df.index[
@@ -375,15 +423,15 @@ sty = (show.style.format(fmt_map, na_rep="—")
 st.dataframe(sty, width="stretch", hide_index=True, height=560)
 st.caption(i18n.t("table_legend"))
 
-if not IS_PAID:
+if not _full_list:
     st.info(
         f"🔒 {i18n.free_preview_caption()} "
         + (i18n.t("lock_hidden", n=hidden_count) if hidden_count else i18n.t("lock_generic"))
     )
 
-if IS_PAID:
+if _full_list:
     st.download_button(
-        i18n.t("csv_button"),
+        i18n.t("csv_button") if _promo_on else i18n.t("csv_button_free"),
         data=full_df[cols].to_csv(index=False).encode("utf-8-sig"),
         file_name=f"dhandho_screening_{dt.date.today().isoformat()}.csv",
         mime="text/csv",
@@ -443,7 +491,7 @@ st.caption("`python snapshot.py` (또는 주간 스케줄)가 통과 종목을 s
 latest, prev = load_latest_snapshots()
 if latest is None:
     st.info("아직 스냅샷이 없습니다. 터미널에서 `python snapshot.py` 를 실행하거나 주간 스케줄을 등록하세요.")
-elif not IS_PAID:
+elif not _full_list:
     st.info(i18n.t("snapshot_locked"))
 else:
     latest_set = {r["ticker"]: r for r in latest["passes"]}
@@ -467,17 +515,19 @@ else:
             st.write("없음")
 
 # ──────────────────────────────────────────────────────────────────────────
-# 섹션 3: 포트폴리오 건강검진 (진단형 — 매수/매도 권유 아님)
+# 섹션 3: 포트폴리오 건강검진 (진단형, 매수/매도 권유 아님)
+# PORTFOLIO_CHECK_ENABLED 가 꺼져 있으면 개별 보유종목 점수를 그리지 않는다.
 # ──────────────────────────────────────────────────────────────────────────
-st.divider()
-st.header(i18n.t("tab5"))
-st.markdown("#### 🩺 내 보유종목 Dhandho 건강검진")
-st.info(
-    "**이 기능은 보유종목이 Dhandho 4축(현금흐름·부채·해자·저평가)에서 "
-    "어떤 점수인지 보여주는 객관 지표 진단입니다.** "
-    "특정 종목의 매수·매도·보유, '물타기' 또는 '손절' 여부를 권유하지 않습니다. "
-    "점수의 해석과 모든 투자 판단은 전적으로 본인의 몫입니다.",
-    icon="ℹ️")
+if config.portfolio_check_enabled():
+    st.divider()
+    st.header(i18n.t("tab5"))
+    st.markdown("#### 🩺 내 보유종목 Dhandho 건강검진")
+    st.info(
+        "**이 기능은 보유종목이 Dhandho 4축(현금흐름, 부채, 해자, 저평가)에서 "
+        "어떤 점수인지 보여주는 객관 지표 진단입니다.** "
+        "특정 종목의 매수, 매도, 보유를 권유하지 않습니다. "
+        "점수의 해석과 모든 투자 판단은 본인에게 있습니다.",
+        icon="ℹ️")
 
 
 @st.cache_data(ttl=43200, show_spinner="보유종목 진단 중...")
@@ -555,75 +605,79 @@ def render_diagnosis_results(d, holdings=None):
     return bad
 
 
-# 1) 빠른 조회 — 티커 1개
-st.markdown("**빠른 조회** — 티커 1개만 입력해서 바로 진단합니다")
-qc1, qc2 = st.columns([3, 1])
-quick_ticker = qc1.text_input(
-    "티커", placeholder="예: AAPL, 005930, 7203.T", label_visibility="collapsed")
-quick_go = qc2.button("🔍 조회", type="primary", width="stretch")
-st.caption("티커 형식: 미국=AAPL · 한국=005930 (6자리) · 일본=7203.T (.T)")
-if USE_PUBLISHED:
-    st.caption("📦 배포 모드: 공개 유니버스(S&P500·한국·일본)에 포함된 종목만 진단됩니다 "
-               "(클라우드에서 실시간 조회 안 함).")
+if config.portfolio_check_enabled():
+    # 1) 빠른 조회
+    st.markdown("**빠른 조회**. 티커 1개만 입력해서 바로 진단합니다")
+    qc1, qc2 = st.columns([3, 1])
+    quick_ticker = qc1.text_input(
+        "티커", placeholder="예: AAPL, 005930, 7203.T", label_visibility="collapsed")
+    quick_go = qc2.button("🔍 조회", type="primary", width="stretch")
+    st.caption("티커 형식: 미국=AAPL · 한국=005930 (6자리) · 일본=7203.T (.T)")
+    if USE_PUBLISHED:
+        st.caption("📦 배포 모드: 공개 유니버스(S&P500·한국·일본)에 포함된 종목만 진단됩니다 "
+                   "(클라우드에서 실시간 조회 안 함).")
 
-if quick_go:
-    t = quick_ticker.strip()
-    if not t:
-        st.warning("티커를 입력해 주세요.")
-    else:
-        st.session_state["quick_diagnose_ticker"] = t
-
-quick_bad_ticker = st.session_state.get("quick_diagnose_ticker")
-if quick_bad_ticker:
-    bad = render_diagnosis_results(run_diagnose((quick_bad_ticker,)))
-    if bad is not None and not bad.empty:
-        st.markdown(i18n.t("universe_request_prompt", ticker=quick_bad_ticker))
-        rq1, rq2 = st.columns([3, 1])
-        req_email = rq1.text_input(
-            "universe_req_email", placeholder=i18n.t("signup_email_placeholder"),
-            label_visibility="collapsed", key="universe_req_email")
-        req_go = rq2.button(i18n.t("universe_request_button"), key="universe_req_btn")
-        # 제출 직후에만 결과 배너를 띄운다(세션에 저장하지 않음) — 이메일을 수정만 하고
-        # 재제출하지 않았는데도 이전 성공/실패 배너가 남아 오해를 주는 것을 방지.
-        if req_go:
-            ok, code = waitlist.request_ticker(req_email, quick_bad_ticker)
-            (st.success if ok else st.error)(i18n.t(_MSG_KEY.get(code, "msg_error")))
-
-st.markdown("---")
-
-# 2) 여러 종목을 한 번에 진단하려면?
-with st.expander("여러 종목을 한 번에 진단하려면?"):
-    st.markdown("**1) 입력 양식 받기** (선택) — 받아서 보유종목을 채운 뒤 업로드하세요")
-    dc1, dc2, _ = st.columns([1.2, 1.2, 3])
-    dc1.download_button("⬇️ 엑셀 템플릿(.xlsx)", data=portfolio_io.template_xlsx_bytes(),
-                        file_name="dhandho_portfolio_template.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    dc2.download_button("⬇️ CSV 템플릿(.csv)", data=portfolio_io.template_csv_bytes(),
-                        file_name="dhandho_portfolio_template.csv", mime="text/csv")
-
-    st.markdown("**2) 파일 업로드**")
-    up = st.file_uploader("포트폴리오 파일 (.xlsx / .csv)", type=["xlsx", "csv"],
-                          help="'티커' 열 필수. 보유수량·평균단가는 선택(평가손익 표시에 사용).")
-    bulk_go = st.button("🔍 건강검진 실행", key="bulk_diagnose")
-
-    if bulk_go:
-        raw_list, holdings = [], {}  # holdings: 티커 -> (수량, 평단)
-        if up is not None:
-            try:
-                pdf = portfolio_io.parse_upload(up)
-                raw_list = pdf["ticker"].tolist()
-                holdings = {row["ticker"]: (row["qty"], row["avg_price"])
-                            for _, row in pdf.iterrows()}
-                st.caption(f"📄 업로드 파싱: {len(raw_list)}개 종목")
-            except Exception as e:
-                st.error(f"파일 파싱 실패: {e}")
-        if not raw_list:
-            st.warning("파일을 올려주세요.")
+    if quick_go:
+        t = quick_ticker.strip()
+        if not t:
+            st.warning("티커를 입력해 주세요.")
         else:
-            render_diagnosis_results(run_diagnose(tuple(raw_list)), holdings)
+            st.session_state["quick_diagnose_ticker"] = t
 
-st.caption("⚠️ 다시 강조: 본 진단은 **정보 제공·교육용 객관 점수**이며 매수·매도·보유 권유가 아닙니다. "
-           "'물타기/손절' 판단을 대신하지 않습니다. 데이터는 yfinance(지연·오류 가능) 기준입니다.")
+    quick_bad_ticker = st.session_state.get("quick_diagnose_ticker")
+    if quick_bad_ticker:
+        bad = render_diagnosis_results(run_diagnose((quick_bad_ticker,)))
+        if bad is not None and not bad.empty:
+            st.markdown(i18n.t("universe_request_prompt", ticker=quick_bad_ticker))
+            rq1, rq2 = st.columns([3, 1])
+            req_email = rq1.text_input(
+                "universe_req_email", placeholder=i18n.t("signup_email_placeholder"),
+                label_visibility="collapsed", key="universe_req_email")
+            req_go = rq2.button(i18n.t("universe_request_button"), key="universe_req_btn")
+            req_consent = st.checkbox(i18n.t("consent_checkbox"), key="universe_consent")
+            # 제출 직후에만 결과 배너를 띄운다. 이메일을 수정만 했을 때 이전 배너가 남지 않게 한다.
+            if req_go:
+                if not req_consent:
+                    ok, code = False, "consent_required"
+                else:
+                    ok, code = waitlist.request_ticker(req_email, quick_bad_ticker, consent=True)
+                (st.success if ok else st.error)(i18n.t(_MSG_KEY.get(code, "msg_error")))
+
+    st.markdown("---")
+
+    # 2) 여러 종목을 한 번에 진단하려면?
+    with st.expander("여러 종목을 한 번에 진단하려면?"):
+        st.markdown("**1) 입력 양식 받기** (선택) — 받아서 보유종목을 채운 뒤 업로드하세요")
+        dc1, dc2, _ = st.columns([1.2, 1.2, 3])
+        dc1.download_button("⬇️ 엑셀 템플릿(.xlsx)", data=portfolio_io.template_xlsx_bytes(),
+                            file_name="dhandho_portfolio_template.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        dc2.download_button("⬇️ CSV 템플릿(.csv)", data=portfolio_io.template_csv_bytes(),
+                            file_name="dhandho_portfolio_template.csv", mime="text/csv")
+
+        st.markdown("**2) 파일 업로드**")
+        up = st.file_uploader("포트폴리오 파일 (.xlsx / .csv)", type=["xlsx", "csv"],
+                              help="'티커' 열 필수. 보유수량·평균단가는 선택(평가손익 표시에 사용).")
+        bulk_go = st.button("🔍 건강검진 실행", key="bulk_diagnose")
+
+        if bulk_go:
+            raw_list, holdings = [], {}  # holdings: 티커 -> (수량, 평단)
+            if up is not None:
+                try:
+                    pdf = portfolio_io.parse_upload(up)
+                    raw_list = pdf["ticker"].tolist()
+                    holdings = {row["ticker"]: (row["qty"], row["avg_price"])
+                                for _, row in pdf.iterrows()}
+                    st.caption(f"📄 업로드 파싱: {len(raw_list)}개 종목")
+                except Exception as e:
+                    st.error(f"파일 파싱 실패: {e}")
+            if not raw_list:
+                st.warning("파일을 올려주세요.")
+            else:
+                render_diagnosis_results(run_diagnose(tuple(raw_list)), holdings)
+
+        st.caption("다시 강조: 본 진단은 정보 제공용 객관 점수이며 매수, 매도, 보유 권유가 아닙니다. "
+                   "데이터는 yfinance 기준이며 지연이나 오류가 있을 수 있습니다.")
 
 st.markdown("---")
 st.caption(i18n.t("footer_disclaimer"))
