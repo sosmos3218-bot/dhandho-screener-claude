@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import attribution  # noqa: E402
 import brevo  # noqa: E402
+import privacy  # noqa: E402
 
 SECRETS_PATH = Path(__file__).resolve().parent.parent / "secrets.json"
 
@@ -32,6 +33,7 @@ ATTRIBUTES = {
     "EXPIRES_AT": "text",   # 관리자 한시적 접근 부여용 만료일(YYYY-MM-DD). paid_gate.is_expired
 }
 ATTRIBUTES.update({name: "text" for name in attribution.BREVO_UTM_ATTRIBUTES.values()})
+ATTRIBUTES.update(privacy.BREVO_CONSENT_ATTRIBUTES)
 
 
 def main() -> int:
