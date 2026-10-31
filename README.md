@@ -41,7 +41,7 @@ pinned: false
   사이드바에서 **결제한 이메일로 6자리 로그인 코드**를 받아 입력하면(`paid_gate.send_login_otp`/
   `verify_login_otp`) 전체 종목 + CSV 다운로드가 열린다 — 예전처럼 이메일을 입력하기만 하면 열리는
   방식이 아니라 실제 소유자 확인을 거친다. `config.session_secret`(HMAC 서명키)이 설정돼 있으면
-  브라우저 쿠키로 `paid_gate.SESSION_TTL_DAYS`(기본 14일)간 로그인이 유지된다(탭을 닫아도 재인증
+  브라우저 쿠키로 `paid_gate.SESSION_TTL_DAYS`(기본 7일)간 로그인이 유지된다(탭을 닫아도 재인증
   불필요, 구독 취소 시 다음 방문에서 자동 재확인돼 즉시 차단). 미설정 시엔 이 기능만 꺼지고
   로그인은 브라우저 세션 안에서만 유지된다.
   키 생성: `python3 -c "import secrets; print(secrets.token_hex(32))"` → `secrets.json`의
@@ -69,12 +69,14 @@ pinned: false
     .venv/bin/python scripts/manage_paid_subscribers.py add <이메일...>       # 직권 등록
     .venv/bin/python scripts/manage_paid_subscribers.py remove <이메일...>    # 제거
     ```
-- **구독 신청 폼**(대시보드 상단): 무료 뉴스레터 구독은 Brevo `BREVO_FREE_LIST_ID`에 등록된다(`waitlist.py`).
+- **구독 신청 폼**(대시보드 상단): 무료 뉴스레터 구독은 동의 체크 후에만 Brevo `BREVO_FREE_LIST_ID`에 등록된다(`waitlist.py`).
+  처리방침 초안은 `?privacy=1`. 동의 시각과 버전은 `CONSENT_AT`, `CONSENT_VERSION` 이다.
   랜딩 URL의 `utm_source`, `utm_medium`, `utm_campaign`(그리고 `utm_content`, `utm_term`)은 첫 유입 기준으로
   쿠키에 90일 보존된다. 다른 화면에서 신청해도 Brevo 속성 `UTM_SOURCE`, `UTM_MEDIUM`, `UTM_CAMPAIGN`,
   `UTM_CONTENT`, `UTM_TERM`과 `SOURCE`(`utm_source` 값, 없으면 `direct`)로 저장된다.
-  유료판 얼리버드 대기 신청은 `PAID_PROMO_ENABLED`가 켜져 있을 때만 노출된다(기본 꺼짐. 유사투자자문업 신고 전에는 켜지 않는다).
-  켜면 할인 안내는 기간 한정(첫 12개월 50%, 마감일은 `EARLYBIRD_DEADLINE`)이고, 대기자는 `BREVO_WAITLIST_LIST_ID`에 등록된다.
+  `PAID_PROMO_ENABLED`가 꺼져 있으면(기본) 유료판 문구, 잠금 목록, 유료 뉴스레터 호를 만들지 않고 통과 종목 전체를 보여 준다.
+  켜면 기간 한정 할인(첫 12개월 50%, 마감일 `EARLYBIRD_DEADLINE`)과 대기자 신청(`BREVO_WAITLIST_LIST_ID`)이 다시 보인다.
+  보유종목 개별 점수는 `PORTFOLIO_CHECK_ENABLED`(기본 꺼짐)일 때만 나온다.
 - **결제 자동화(Polar/Stripe → Brevo)**: `webhook/`의 Cloudflare Worker가 결제 완료 웹훅을 받아
   구매자 이메일을 Brevo 유료 리스트에 자동으로 추가한다 — `secrets.json`을 구독자마다 수동으로 고칠 필요가 없다.
   설정 방법은 [`webhook/README.md`](webhook/README.md) 참고. 미설정 시에는 `secrets.json`의

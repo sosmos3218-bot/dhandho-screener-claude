@@ -67,16 +67,35 @@ def compute_diff(latest, prev):
     return new, dropped
 
 
+LIST_DISCLAIMER = "사전에 정한 조건을 통과한 목록이며 투자 권유가 아닙니다."
+
+
 def market_comment(n_pass, total):
+    """통과 비율만 적는다. 매수 시점이나 현금 보유를 권하지 않는다."""
     ratio = (n_pass / total * 100) if total else 0
-    if ratio < 3:
-        return ("🔴 시장 전반이 비쌉니다.", "조건을 통과하는 종목이 드뭅니다. "
-                "Dhandho 관점에선 '지금은 인내할 때'라는 신호 — 무리해서 사기보다 현금을 쥐고 기다립니다.")
-    if ratio < 8:
-        return ("🟠 선별적 기회 구간.", "전반적으로 싸지 않지만 일부 종목이 기준을 통과합니다. "
-                "통과 종목을 깊이 들여다볼 가치가 있는 시점.")
-    return ("🟢 기회가 늘어나는 구간.", "다수 종목이 기준을 통과합니다. 과거 약세장에서 자주 나타난 "
-            "패턴 — 우량 기업을 헐값에 담을 기회가 많아집니다.")
+    head = f"조건 통과 {n_pass}종목 ({ratio:.1f}%)"
+    body = (f"이번 스캔 대상 {total}종목 가운데 {n_pass}종목이 "
+            f"사전에 정한 4개 축 기준을 통과했습니다. 통과 비율은 기준 적용 결과입니다.")
+    return head, body
+
+
+def _names_visible(tier: str) -> bool:
+    """유료 홍보가 꺼져 있으면 무료 호도 통과 종목 이름을 그대로 보여 준다."""
+    return tier == "paid" or not config.paid_promo_enabled()
+
+
+def edition_subject(date: str, tier: str, n_pass: int) -> str:
+    """제목.
+
+    (광고) 접두어는 유료 상품 안내가 들어 있는 호에만 붙인다.
+    PAID_PROMO_ENABLED 가 꺼진 무료 호는 조건 통과 목록만 다루므로 접두어가 없다.
+    무료 호 자체가 광고성 정보인지는 변호사 검토가 필요하다.
+    """
+    label = "무료판" if tier == "free" else "유료판"
+    base = f"[{BRAND}] {date} {label}, 조건 통과 {n_pass}종목"
+    if config.paid_promo_enabled():
+        return f"(광고) {base}"
+    return base
 
 
 def week_index():
@@ -95,60 +114,62 @@ def build_markdown(latest, prev, tier: str = "free"):
     edu_title, edu_body = EDU_SNIPPETS[week_index()]
 
     all_passes = sorted(latest["passes"], key=lambda x: -x["dhandho_score"])
-    shown = all_passes if tier == "paid" else tier_display.free_preview_list(all_passes)
-    hidden = tier_display.free_hidden_pass_count(len(all_passes)) if tier == "free" else 0
-    tier_label = "유료판 (Paid Edition) · 전체 통과 종목 공개" if tier == "paid" else "무료판 (Free Edition)"
-    list_title = "전체" if tier == "paid" else tier_display.free_preview_list_title()
+    visible = _names_visible(tier)
+    shown = all_passes if visible else tier_display.free_preview_list(all_passes)
+    hidden = 0 if visible else tier_display.free_hidden_pass_count(len(all_passes))
+    tier_label = "유료판 (Paid Edition)" if tier == "paid" else "무료판 (Free Edition)"
+    list_title = "전체" if visible else tier_display.free_preview_list_title()
 
     L = [f"# {BRAND} — {date}", "", f"_{TAGLINE}_", "", f"**{tier_label}**", "",
          f"이번 주 **{total}개** 종목을 정량 스캔해 **{n_pass}개**가 Dhandho 4축 기준을 통과했습니다.", "",
          f"## 📊 시장 온도  {head}", body, "",
          f"## 🆕 이번 주 신규 진입 ({len(new)})"]
-    if tier == "paid":
+    if visible:
         if new:
             for r in new:
-                L.append(f"- **{r['name']}** ({r['ticker']}, {r['market']}) — "
-                         f"Dhandho {r['dhandho_score']} · FCF수익률 {r['fcf_yield']}% · "
-                         f"부채/자본 {r['debt_equity']} · ROIC {r['roic']}% · P/E {r['pe']} · 해자 {r['moat_tag']}")
+                L.append(f"- **{r['name']}** ({r['ticker']}, {r['market']}), "
+                         f"Dhandho {r['dhandho_score']}, FCF수익률 {r['fcf_yield']}%, "
+                         f"부채/자본 {r['debt_equity']}, ROIC {r['roic']}%, P/E {r['pe']}, 해자 {r['moat_tag']}")
         else:
             L.append("- 없음 (지난주 대비 변화 없음)")
     elif new:
-        L.append(f"- **{len(new)}건** — 종목명·지표는 유료판에서 공개합니다.")
+        L.append(f"- **{len(new)}건**. 종목명과 지표는 유료판에서 공개합니다.")
     else:
         L.append("- 없음 (지난주 대비 변화 없음)")
 
     L += ["", f"## ❌ 이번 주 탈락 ({len(dropped)})"]
-    if tier == "paid":
+    if visible:
         if dropped:
             for r in dropped:
-                L.append(f"- **{r['name']}** ({r['ticker']}) — 직전 Dhandho {r['dhandho_score']} "
-                         f"(가격 상승으로 저평가 해소 / 펀더멘털 변화 등 추정)")
+                L.append(f"- **{r['name']}** ({r['ticker']}), 직전 Dhandho {r['dhandho_score']}")
         else:
             L.append("- 없음")
     elif dropped:
-        L.append(f"- **{len(dropped)}건** — 종목명·지표는 유료판에서 공개합니다.")
+        L.append(f"- **{len(dropped)}건**. 종목명과 지표는 유료판에서 공개합니다.")
     else:
         L.append("- 없음")
 
-    L += ["", f"## ✅ 현재 통과 종목 {list_title} (Dhandho 순)", ""]
-    if tier == "free":
+    L += ["", f"## ✅ 현재 통과 종목 {list_title} (Dhandho 순)", "",
+          LIST_DISCLAIMER, ""]
+    if not visible:
         L += [f"_{tier_display.free_preview_caption()}_", ""]
     L += ["| # | 종목 | 시장 | Dhandho | FCF수익률 | 부채/자본 | ROIC | P/E | 해자 |",
           "|--:|------|:--:|--:|--:|--:|--:|--:|:--:|"]
-    rank_start = 1 if tier == "paid" else config.FREE_TIER_SKIP + 1
+    rank_start = 1 if visible else config.FREE_TIER_SKIP + 1
     for i, r in enumerate(shown, rank_start):
         L.append(f"| {i} | {r['name']} ({r['ticker']}) | {r['market']} | {r['dhandho_score']} | "
                  f"{r['fcf_yield']}% | {r['debt_equity']} | {r['roic']}% | {r['pe']} | {r['moat_tag']} |")
-    if tier == "free" and hidden:
-        L += ["", f"🔒 나머지 **{hidden}개** 통과 종목(1~{config.FREE_TIER_SKIP}위 포함)은 유료판에서 확인할 수 있습니다."]
+    if not visible and hidden:
+        L += ["", f"나머지 **{hidden}개** 통과 종목(1~{config.FREE_TIER_SKIP}위 포함)은 유료판에서 확인할 수 있습니다."]
 
     L += ["", f"## 📚 이번 주 가치투자 한 조각 — {edu_title}", edu_body, "",
           "---", "",
           "⚠️ **면책**: 본 뉴스레터는 정량 스크리닝 결과를 공유하는 **정보 제공·교육 목적** 콘텐츠이며, "
           "특정 종목의 매수·매도를 권유하지 않습니다. 투자 판단과 책임은 전적으로 본인에게 있습니다. "
           "데이터: yfinance·pykrx (지연/오류 가능), 해자 태그는 운영자의 정성 판단입니다. "
-          "투자 전 DART·FnGuide 등 1차 자료로 반드시 검증하세요.",
-          "", f"_구독 해지를 원하시면 회신 주세요. · {BRAND}_"]
+          "투자 전 DART, FnGuide 등 1차 자료로 반드시 검증하세요.",
+          "",
+          f"수신거부: {{{{ unsubscribe }}}} 또는 이 메일에 회신해 주세요. {BRAND}"]
     return "\n".join(L)
 
 
@@ -182,50 +203,54 @@ def build_html(latest, prev, tier: str = "free"):
     edu_title, edu_body = EDU_SNIPPETS[week_index()]
 
     all_passes = sorted(latest["passes"], key=lambda x: -x["dhandho_score"])
-    shown = all_passes if tier == "paid" else tier_display.free_preview_list(all_passes)
-    hidden = tier_display.free_hidden_pass_count(len(all_passes)) if tier == "free" else 0
-    tier_badge = "유료판 · Paid Edition" if tier == "paid" else "무료판 · Free Edition"
-    list_title = "전체" if tier == "paid" else tier_display.free_preview_list_title()
+    visible = _names_visible(tier)
+    shown = all_passes if visible else tier_display.free_preview_list(all_passes)
+    hidden = 0 if visible else tier_display.free_hidden_pass_count(len(all_passes))
+    tier_badge = "유료판, Paid Edition" if tier == "paid" else "무료판, Free Edition"
+    list_title = "전체" if visible else tier_display.free_preview_list_title()
 
     def section(title):
         return (f'<h2 style="font-size:17px;color:#1a1a1a;margin:28px 0 10px;'
                 f'border-left:4px solid #188038;padding-left:10px;">{title}</h2>')
 
-    if tier == "paid":
+    if visible:
         new_html = "".join(
             f'<li style="margin:6px 0;"><b>{r["name"]}</b> '
-            f'<span style="color:#9aa0a6;font-size:12px;">{r["ticker"]}·{r["market"]}</span><br>'
-            f'<span style="font-size:13px;color:#444;">Dhandho {r["dhandho_score"]} · '
-            f'FCF {r["fcf_yield"]}% · 부채/자본 {r["debt_equity"]} · ROIC {r["roic"]}% · '
-            f'P/E {r["pe"]} · 해자 {r["moat_tag"]}</span></li>'
+            f'<span style="color:#9aa0a6;font-size:12px;">{r["ticker"]} {r["market"]}</span><br>'
+            f'<span style="font-size:13px;color:#444;">Dhandho {r["dhandho_score"]}, '
+            f'FCF {r["fcf_yield"]}%, 부채/자본 {r["debt_equity"]}, ROIC {r["roic"]}%, '
+            f'P/E {r["pe"]}, 해자 {r["moat_tag"]}</span></li>'
             for r in new) or '<li style="color:#9aa0a6;">없음 (지난주 대비 변화 없음)</li>'
         dropped_html = "".join(
             f'<li style="margin:6px 0;"><b>{r["name"]}</b> '
-            f'<span style="color:#9aa0a6;font-size:12px;">{r["ticker"]}</span> — '
+            f'<span style="color:#9aa0a6;font-size:12px;">{r["ticker"]}</span> '
             f'<span style="font-size:13px;color:#444;">직전 Dhandho {r["dhandho_score"]}</span></li>'
             for r in dropped) or '<li style="color:#9aa0a6;">없음</li>'
     else:
         new_html = (
-            f'<li style="margin:6px 0;"><b>{len(new)}건</b> — '
-            f'<span style="font-size:13px;color:#444;">종목명·지표는 유료판에서 공개합니다.</span></li>'
+            f'<li style="margin:6px 0;"><b>{len(new)}건</b> '
+            f'<span style="font-size:13px;color:#444;">종목명과 지표는 유료판에서 공개합니다.</span></li>'
             if new else '<li style="color:#9aa0a6;">없음 (지난주 대비 변화 없음)</li>'
         )
         dropped_html = (
-            f'<li style="margin:6px 0;"><b>{len(dropped)}건</b> — '
-            f'<span style="font-size:13px;color:#444;">종목명·지표는 유료판에서 공개합니다.</span></li>'
+            f'<li style="margin:6px 0;"><b>{len(dropped)}건</b> '
+            f'<span style="font-size:13px;color:#444;">종목명과 지표는 유료판에서 공개합니다.</span></li>'
             if dropped else '<li style="color:#9aa0a6;">없음</li>'
         )
 
-    rank_start = 1 if tier == "paid" else config.FREE_TIER_SKIP + 1
+    rank_start = 1 if visible else config.FREE_TIER_SKIP + 1
     top_rows = "".join(_row_html(r, i) for i, r in enumerate(shown, rank_start))
     preview_note = (
+        "" if visible else
         f'<p style="margin:0 0 8px;color:#666;font-size:12px;">{tier_display.free_preview_caption()}</p>'
-        if tier == "free" else ""
     )
     lock_html = (
-        f'<p style="margin:8px 0 0;color:#9aa0a6;font-size:12px;">🔒 나머지 <b>{hidden}개</b> '
+        f'<p style="margin:8px 0 0;color:#9aa0a6;font-size:12px;">나머지 <b>{hidden}개</b> '
         f'통과 종목(1~{config.FREE_TIER_SKIP}위 포함)은 유료판에서 확인할 수 있습니다.</p>'
-        if tier == "free" and hidden else ""
+        if (not visible and hidden) else ""
+    )
+    list_note = (
+        f'<p style="margin:0 0 8px;color:#333;font-size:13px;">{LIST_DISCLAIMER}</p>'
     )
 
     return f"""<!DOCTYPE html>
@@ -248,7 +273,7 @@ def build_html(latest, prev, tier: str = "free"):
 
     <!-- 시장 온도 -->
     <div style="background:#f1f8f3;border-radius:10px;padding:14px 16px;margin:14px 0;">
-      <div style="font-size:15px;font-weight:700;color:#1a1a1a;">📊 시장 온도 — {head}</div>
+      <div style="font-size:15px;font-weight:700;color:#1a1a1a;">시장 온도: {head}</div>
       <div style="font-size:13px;color:#444;line-height:1.6;margin-top:4px;">{body}</div>
     </div>
 
@@ -259,6 +284,7 @@ def build_html(latest, prev, tier: str = "free"):
     <ul style="padding-left:18px;margin:0;font-size:14px;color:#1a1a1a;">{dropped_html}</ul>
 
     {section(f"✅ 현재 통과 종목 {list_title}")}
+    {list_note}
     {preview_note}
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       <thead><tr style="background:#fafafa;color:#666;font-size:11px;text-align:right;">
@@ -284,8 +310,9 @@ def build_html(latest, prev, tier: str = "free"):
       ⚠️ 본 뉴스레터는 정량 스크리닝 결과를 공유하는 <b>정보 제공·교육 목적</b> 콘텐츠이며,
       특정 종목의 매수·매도를 권유하지 않습니다. 투자 판단과 책임은 전적으로 본인에게 있습니다.
       데이터: yfinance·pykrx(지연/오류 가능), 해자 태그는 운영자의 정성 판단입니다.
-      투자 전 DART·FnGuide 등 1차 자료로 반드시 검증하세요.<br><br>
-      구독 해지를 원하시면 본 메일에 회신해 주세요. · {BRAND}
+      투자 전 DART, FnGuide 등 1차 자료로 반드시 검증하세요.<br><br>
+      수신거부: {{{{ unsubscribe }}}}<br>
+      {BRAND}
     </div>
   </div>
 </div>
@@ -305,7 +332,11 @@ def generate():
     os.makedirs(OUT_DIR, exist_ok=True)
     date = latest["date"]
     result = {"date": date}
-    for tier, label in (("free", "무료판"), ("paid", "유료판")):
+    # 유료 홍보가 꺼져 있으면 유료판 호를 만들지도, 보내지 않는다. 생성 코드는 남긴다.
+    tiers = [("free", "무료판")]
+    if config.paid_promo_enabled():
+        tiers.append(("paid", "유료판"))
+    for tier, label in tiers:
         md = build_markdown(latest, prev, tier=tier)
         html = build_html(latest, prev, tier=tier)
         md_path = os.path.join(OUT_DIR, f"dhandho_{date}_{tier}.md")
@@ -316,7 +347,7 @@ def generate():
         print(f"✅ 뉴스레터 생성({label}): {html_path}")
         result[tier] = {
             "md": md, "html": html,
-            "subject": f"[{BRAND}] {date} {label} — 통과 {latest['n_pass']}종목",
+            "subject": edition_subject(date, tier, latest["n_pass"]),
         }
     return result
 
@@ -366,9 +397,30 @@ def _send_brevo_campaign(subject: str, html: str, list_id: str) -> bool:
     return True
 
 
+def delivery_configured() -> bool:
+    """실제로 보낼 곳이 설정돼 있으면 True. 없으면 주간 잡이 발송 실패로 죽지 않게 한다."""
+    if config.brevo_api_key() and config.brevo_free_list_id():
+        return True
+    if config.paid_promo_enabled() and config.brevo_api_key() and config.brevo_paid_list_id():
+        return True
+    if not os.path.exists(SECRETS):
+        return False
+    try:
+        cfg = json.load(open(SECRETS, encoding="utf-8"))
+    except Exception:
+        return False
+    smtp = cfg.get("smtp") or {}
+    has_smtp = bool(smtp.get("user") and smtp.get("password"))
+    has_people = bool(cfg.get("subscribers") or cfg.get("paid_subscribers"))
+    return has_smtp and has_people
+
+
 def send(payload):
     """Brevo(BREVO_API_KEY + 리스트 ID)가 설정된 티어는 그 리스트로 자동 발송하고,
-    없는 티어는 secrets.json 의 subscribers/paid_subscribers 로 SMTP 발송(수동 명단 폴백)."""
+    없는 티어는 secrets.json 의 subscribers/paid_subscribers 로 SMTP 발송(수동 명단 폴백).
+
+    반환: 설정이 있으면 발송 성공 여부. 설정이 없으면 True (보낼 곳이 없는 상태).
+    """
     sent_via_brevo = {}
     for tier, data in (("free", payload.get("free")), ("paid", payload.get("paid"))):
         list_id = config.brevo_free_list_id() if tier == "free" else config.brevo_paid_list_id()

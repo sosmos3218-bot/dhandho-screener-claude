@@ -406,6 +406,58 @@ def paid_promo_enabled() -> bool:
     return raw.lower() in _PROMO_ON
 
 
+def _flag_on(env_name: str, secret_key: str) -> bool:
+    raw = _os.environ.get(env_name, "").strip()
+    if not raw:
+        raw = str(_load_secrets().get(secret_key, "")).strip()
+    return raw.lower() in _PROMO_ON
+
+
+def portfolio_check_enabled() -> bool:
+    """보유종목 개별 점수 화면. 기본 꺼짐. PORTFOLIO_CHECK_ENABLED=1 로 켠다."""
+    return _flag_on("PORTFOLIO_CHECK_ENABLED", "portfolio_check_enabled")
+
+
+def brevo_doi_template_id() -> str:
+    """Brevo double opt-in 템플릿 ID. 비어 있으면 기존처럼 바로 리스트에 넣는다."""
+    return (_os.environ.get("BREVO_DOI_TEMPLATE_ID", "").strip()
+            or str(_load_secrets().get("brevo_doi_template_id", "")).strip())
+
+
+def brevo_doi_redirect_url() -> str:
+    """DOI 확인 후 이동할 URL. 템플릿 ID 와 함께 있어야 double opt-in 을 탄다."""
+    return (_os.environ.get("BREVO_DOI_REDIRECT_URL", "").strip()
+            or str(_load_secrets().get("brevo_doi_redirect_url", "")).strip())
+
+
+def skip_rate_threshold() -> float:
+    """시장별 스킵 비율이 이 값을 넘으면 주간 파이프라인이 실패한다. 기본 0.10."""
+    raw = (_os.environ.get("SKIP_RATE_THRESHOLD", "").strip()
+           or str(_load_secrets().get("skip_rate_threshold", "")).strip()
+           or "0.10")
+    try:
+        value = float(raw)
+    except ValueError:
+        return 0.10
+    if value < 0:
+        return 0.0
+    if value > 1:
+        return 1.0
+    return value
+
+
+# 시장별 실효세율 (ROIC 의 NOPAT 추정). 필요하면 이 딕셔너리만 고친다.
+TAX_RATES = {
+    "US": 0.21,
+    "KR": 0.242,   # 법인세 약 24.2% (지방소득세 포함, 대략)
+    "JP": 0.306,   # 실효세율 약 30.6%
+}
+
+
+def tax_rate(market: str) -> float:
+    return TAX_RATES.get((market or "").upper(), TAX_RATES["US"])
+
+
 def earlybird_deadline() -> str:
     """기간 한정 할인 신청 마감일 표시 문자열. 오너가 실제 날짜로 바꾼다.
 

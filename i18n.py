@@ -144,19 +144,34 @@ _S = {
         "ja": "現在、すべてのしきい値を通過する銘柄がありません。市場が割高か条件が厳しすぎる可能性があります — サイドバーで緩和してみてください。",
     },
     "top_candidate_paid": {
-        "ko": "🏆 최우선 후보: **{name}** ({ticker}) · Dhandho {score} · FCF Yield {fcf} · ROIC {roic} · P/E {pe} · 해자 {moat}",
-        "en": "🏆 Top candidate: **{name}** ({ticker}) · Dhandho {score} · FCF Yield {fcf} · ROIC {roic} · P/E {pe} · Moat {moat}",
-        "ja": "🏆 最有力候補：**{name}**（{ticker}） · Dhandho {score} · FCF利回り {fcf} · ROIC {roic} · PER {pe} · モート {moat}",
+        "ko": "조건 통과 종목: **{name}** ({ticker}). Dhandho {score}, FCF Yield {fcf}, ROIC {roic}, P/E {pe}, 해자 {moat}",
+        "en": "Passed the screen: **{name}** ({ticker}). Dhandho {score}, FCF Yield {fcf}, ROIC {roic}, P/E {pe}, moat {moat}",
+        "ja": "条件通過銘柄: **{name}**（{ticker}）. Dhandho {score}, FCF利回り {fcf}, ROIC {roic}, PER {pe}, モート {moat}",
     },
     "top_candidate_free": {
-        "ko": "🏆 무료 미리보기 후보 ({rank} 중): **{name}** ({ticker}) · Dhandho {score} · FCF Yield {fcf} · ROIC {roic} · P/E {pe} · 해자 {moat}",
-        "en": "🏆 Free preview candidate (of {rank}): **{name}** ({ticker}) · Dhandho {score} · FCF Yield {fcf} · ROIC {roic} · P/E {pe} · Moat {moat}",
-        "ja": "🏆 無料プレビュー候補（{rank}中）：**{name}**（{ticker}） · Dhandho {score} · FCF利回り {fcf} · ROIC {roic} · PER {pe} · モート {moat}",
+        "ko": "조건 통과 종목 ({rank}): **{name}** ({ticker}). Dhandho {score}, FCF Yield {fcf}, ROIC {roic}, P/E {pe}, 해자 {moat}",
+        "en": "Passed the screen ({rank}): **{name}** ({ticker}). Dhandho {score}, FCF Yield {fcf}, ROIC {roic}, P/E {pe}, moat {moat}",
+        "ja": "条件通過銘柄（{rank}）: **{name}**（{ticker}）. Dhandho {score}, FCF利回り {fcf}, ROIC {roic}, PER {pe}, モート {moat}",
+    },
+    "list_disclaimer": {
+        "ko": "사전에 정한 조건을 통과한 목록이며 투자 권유가 아닙니다.",
+        "en": "This is a list of names that passed rules set in advance. It is not a solicitation to invest.",
+        "ja": "あらかじめ定めた条件を通過した一覧であり、投資の勧誘ではありません。",
+    },
+    "stale_data_warning": {
+        "ko": "표시 중인 데이터 기준일({date})이 8일을 넘었습니다. 최신 주간 스캔이 반영되지 않았을 수 있습니다.",
+        "en": "The data date ({date}) is more than 8 days old. The latest weekly scan may not be loaded.",
+        "ja": "表示中のデータの基準日（{date}）が8日を超えています。最新の週次スキャンが反映されていない可能性があります。",
+    },
+    "csv_button_free": {
+        "ko": "⬇️ 전체 결과 CSV 다운로드",
+        "en": "⬇️ Download full results CSV",
+        "ja": "⬇️ 全結果CSVダウンロード",
     },
     "top_candidate_free_note": {
-        "ko": "실제 1~{skip}위 최우선 후보는 유료판에서 공개됩니다.",
-        "en": "The true #1–{skip} top candidates are revealed in the paid tier.",
-        "ja": "実際の1〜{skip}位の最有力候補は有料版で公開されます。",
+        "ko": "1위부터 {skip}위까지의 통과 종목은 유료판 화면에서 볼 수 있습니다.",
+        "en": "Passing names ranked 1 to {skip} are listed in the paid view.",
+        "ja": "1位から{skip}位までの通過銘柄は有料版で見られます。",
     },
     "no_preview_info": {
         "ko": "무료 미리보기 구간({rank})에 해당하는 통과 종목이 없습니다.",
@@ -165,6 +180,14 @@ _S = {
     },
     # ── 구독 신청 ─────────────────────────────────────────────────────────
     "signup_header": {"ko": "📬 뉴스레터 구독 신청", "en": "📬 Subscribe to the newsletter", "ja": "📬 ニュースレター購読申込"},
+    "signup_body_free_full": {
+        "ko": "**무료 구독**: 매주 조건 통과 종목 목록을 이메일로 받아보세요. "
+              "사전에 정한 조건을 통과한 목록이며 투자 권유가 아닙니다.",
+        "en": "**Free subscription**: Get the weekly list of names that passed the screen. "
+              "It is a rules-based list, not a solicitation to invest.",
+        "ja": "**無料購読**: 毎週、条件を通過した銘柄一覧をメールでお届けします。"
+              "あらかじめ定めた条件を通過した一覧であり、投資の勧誘ではありません。",
+    },
     "signup_body_free": {
         "ko": "**무료 구독**: 매주 스크리닝 결과 요약을 이메일로 받아보세요 (지금 통과 종목 중 "
               "**{rank}** 미리보기 수준의 무료판 뉴스레터).",
@@ -188,8 +211,28 @@ _S = {
     "signup_waitlist_option": {"ko": "유료판 얼리버드 대기", "en": "Paid early-bird waitlist", "ja": "有料版アーリーバード待機"},
     "signup_email_placeholder": {"ko": "you@example.com", "en": "you@example.com", "ja": "you@example.com"},
     "signup_submit_button": {"ko": "📮 신청하기", "en": "📮 Submit", "ja": "📮 申し込む"},
+    "consent_checkbox": {
+        "ko": "개인정보 수집, 이용, 국외 이전(Brevo) 및 뉴스레터 수신에 동의합니다.",
+        "en": "I agree to the collection, use, overseas transfer (Brevo), and newsletter delivery of my data.",
+        "ja": "個人情報の収集、利用、国外移転(Brevo)、ニュースレター受信に同意します。",
+    },
+    "consent_policy_link": {
+        "ko": "[개인정보 처리방침 (초안, 변호사 검토 전)](?privacy=1)",
+        "en": "[Privacy notice (draft, pending lawyer review)](?privacy=1)",
+        "ja": "[プライバシーポリシー (草案)](?privacy=1)",
+    },
     "msg_invalid_email": {
         "ko": "이메일 형식을 확인해 주세요.", "en": "Please check the email format.", "ja": "メールアドレスの形式をご確認ください。"},
+    "msg_consent_required": {
+        "ko": "개인정보 수집과 수신 동의에 체크해야 신청할 수 있습니다.",
+        "en": "Check the consent box before submitting.",
+        "ja": "個人情報の収集と受信への同意にチェックしてから申し込んでください。",
+    },
+    "paid_otp_generic": {
+        "ko": "인증 메일을 보낼 수 있는 주소라면 코드를 발송했습니다. 메일함을 확인해 주세요.",
+        "en": "If this address can receive a login code, we sent one. Check your inbox.",
+        "ja": "認証メールを送れるアドレスであればコードを送信しました。受信箱を確認してください。",
+    },
     "msg_not_configured": {
         "ko": "신청이 아직 준비 중입니다. 잠시 후 다시 시도해 주세요.",
         "en": "Signup isn't ready yet — please try again shortly.",
