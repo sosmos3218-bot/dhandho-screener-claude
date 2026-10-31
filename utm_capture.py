@@ -9,11 +9,35 @@ CookieManager 의 기본 반환값 {} 는 '아직 브라우저 응답 전'과 '�
 구분하지 못한다. 기본값을 None 으로 두어, 로드 전에 쿠키를 덮어쓰지 않는다.
 """
 import datetime as dt
+import os
 
 import streamlit as st
 from extra_streamlit_components.CookieManager import CookieManager, _component_func
 
 import attribution
+
+
+def cookie_secure() -> bool:
+    """HTTPS 로 열린 경우에만 Secure 쿠키. 로컬 http 에서는 저장이 막히지 않게 끈다.
+
+    DHANDHO_COOKIE_SECURE=1 또는 0 으로 강제할 수 있다.
+    """
+    forced = os.environ.get("DHANDHO_COOKIE_SECURE", "").strip().lower()
+    if forced in {"1", "true", "yes", "on"}:
+        return True
+    if forced in {"0", "false", "no", "off"}:
+        return False
+    try:
+        headers = getattr(st.context, "headers", None) or {}
+        proto = ""
+        if hasattr(headers, "get"):
+            proto = headers.get("x-forwarded-proto") or headers.get("X-Forwarded-Proto") or ""
+        if str(proto).split(",")[0].strip().lower() == "https":
+            return True
+        url = str(getattr(st.context, "url", "") or "")
+        return url.startswith("https://")
+    except Exception:
+        return False
 
 UTM_COOKIE = "dhandho_utm"
 SESSION_KEY = "utm_first_touch"
@@ -70,6 +94,7 @@ def remember_first_touch(cookie_manager, query_params) -> dict:
                 path="/",
                 expires_at=dt.datetime.now() + dt.timedelta(days=attribution.UTM_COOKIE_DAYS),
                 same_site="lax",
+                secure=cookie_secure(),
             )
             st.session_state[PERSISTED_KEY] = token
     return chosen

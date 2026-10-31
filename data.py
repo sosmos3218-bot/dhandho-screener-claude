@@ -26,7 +26,7 @@ _CACHE_DIR = Path(__file__).parent / ".cache"
 _CACHE_DIR.mkdir(exist_ok=True)
 _CACHE_TTL_HOURS = 12          # 디스크 캐시 유효 시간
 _DATE_FMT = "%Y%m%d"
-_DEFAULT_TAX_RATE = 0.21       # ROIC NOPAT 추정용 실효세율
+# ROIC NOPAT 추정은 config.tax_rate(market) 를 쓴다 (US 21%, KR 24.2%, JP 30.6%).
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -177,7 +177,7 @@ def _yf_raw(yf_ticker: str, market: str) -> dict:
 
     # ROIC = NOPAT / Invested Capital (없으면 ROE 폴백)
     if ebit is not None and out["invested_capital"] not in (None, 0):
-        out["roic"] = ebit * (1 - _DEFAULT_TAX_RATE) / out["invested_capital"] * 100.0
+        out["roic"] = ebit * (1 - config.tax_rate(market)) / out["invested_capital"] * 100.0
     else:
         out["roic"] = out["roe"]
 
@@ -335,7 +335,7 @@ def fetch_kr(ticker: str, info: dict, ref: dt.date = None, use_cache: bool = Tru
 
     # ROIC: 투하자본 기반 → ROE → config 수동
     if out["ebit"] is not None and invested_capital not in (None, 0):
-        out["roic"] = out["ebit"] * (1 - _DEFAULT_TAX_RATE) / invested_capital * 100.0
+        out["roic"] = out["ebit"] * (1 - config.tax_rate("KR")) / invested_capital * 100.0
     elif raw.get("roe") is not None:
         out["roic"] = raw.get("roe")
     else:
@@ -358,7 +358,10 @@ def fetch_kr(ticker: str, info: dict, ref: dt.date = None, use_cache: bool = Tru
     if mc is not None and out["net_debt"] is not None:
         out["enterprise_value"] = mc + out["net_debt"]
 
-    if use_cache:
+    if raw.get("error") and out.get("market_cap") is None:
+        out["error"] = raw.get("error")
+
+    if use_cache and not out.get("error"):
         _cache_set(cache_key, out)
     time.sleep(0.2)
     return out

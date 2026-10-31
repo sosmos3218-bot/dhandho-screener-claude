@@ -26,7 +26,7 @@ admin_page.py)와 로컬 CLI(scripts/manage_paid_subscribers.py)가 이 함수�
 import hashlib
 import hmac
 import json
-import random
+import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 
 import brevo
 import config
+import otp_limit
 import waitlist
 
 OTP_TTL_MINUTES = 10
@@ -80,21 +81,28 @@ def is_paid_email(email: str) -> bool:
 
 
 def send_login_otp(email: str) -> tuple:
-    """유료 이메일 확인 후 6자리 로그인 코드 발송.
-    (True, otp_state) 또는 (False, 에러코드: invalid_email|not_paid|not_configured|error).
-    otp_state 는 호출부가 st.session_state 에 보관했다가 verify_login_otp 에 그대로 넘긴다."""
+    """로그인 코드 발송.
+
+    (True, otp_state) 코드를 보낸 경우.
+    (True, None) 주소가 유료 명단에 없어도 같은 성공 응답. 명단 여부를 드러내지 않는다.
+    (False, invalid_email|rate_limited|not_configured|error)
+
+    속도 제한은 otp_limit 이 디스크에 남긴다. 세션을 새로 열어도 우회되지 않는다.
+    """
     email = (email or "").strip().lower()
-    if not email:
+    if not email or not waitlist.is_valid_email(email):
         return False, "invalid_email"
+    if not otp_limit.check_and_mark(email):
+        return False, "rate_limited"
     if not is_paid_email(email):
-        return False, "not_paid"
+        return True, None
 
     key = config.brevo_api_key()
     admin_email, sender_name = config.brevo_sender()
     if not key or not admin_email:
         return False, "not_configured"
 
-    code = f"{random.randint(0, 999999):06d}"
+    code = f"{secrets.randbelow(1_000_000):06d}"
     ok = brevo.send_transactional_email(
         admin_email, sender_name, email,
         "[Dhandho Screener] 로그인 인증 코드",
@@ -115,7 +123,10 @@ def verify_login_otp(otp_state: dict, email: str, code: str) -> bool:
         return False
     email = (email or "").strip().lower()
     code = (code or "").strip()
-    if not code or email != otp_state.get("email") or code != otp_state.get("code"):
+    expected = str(otp_state.get("code") or "")
+    if (not code or email != otp_state.get("email")
+            or len(code) != len(expected)
+            or not hmac.compare_digest(code, expected)):
         return False
     try:
         expires = datetime.fromisoformat(otp_state["expires"])

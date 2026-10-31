@@ -88,7 +88,11 @@ def build_row(raw: dict) -> dict:
     moat_bonus = config.MOAT_TAG_BONUS.get(r.get("moat_tag", "none"), 0.0)
     s_moat = min(1.0, s_moat_quant + moat_bonus)
 
-    s_value = (_norm_lower(r.get("pe"), TH["pe_max"], TH["pe_max"] * 3) * 0.4
+    # P/E 가 0 이하(적자)이면 '싸다'로 치지 않는다. 결측과 같이 이 축 점수는 0.
+    pe_raw = r.get("pe")
+    pe_score = 0.0 if (pe_raw is None or pe_raw <= 0) else _norm_lower(
+        pe_raw, TH["pe_max"], TH["pe_max"] * 3)
+    s_value = (pe_score * 0.4
                + _norm_lower(r.get("pb"), TH["pb_max"], TH["pb_max"] * 3) * 0.3
                + _norm_higher(r["earnings_yield"], TH["earnings_yield_min"]) * 0.3)
 
@@ -122,7 +126,8 @@ def _flags(r: dict) -> list:
         f.append("💰현금흐름")
     if r.get("debt_equity") is not None and r["debt_equity"] <= TH["debt_equity_max"]:
         f.append("🛡️저부채")
-    if (r.get("roic") is not None and r["roic"] >= TH["roic_min"]) or r.get("moat_tag") == "wide":
+    # 해자 뱃지도 ROIC 기준과 맞춘다. wide 태그는 표의 해자 열에만 남는다.
+    if r.get("roic") is not None and r["roic"] >= TH["roic_min"]:
         f.append("🏰해자")
     if (r.get("pe") is not None and r["pe"] <= TH["pe_max"]) or \
        (r.get("earnings_yield") is not None and r["earnings_yield"] >= TH["earnings_yield_min"]):
@@ -228,8 +233,12 @@ def _passes_filters(r: dict, strict: bool = False) -> bool:
     """
     cf_ok = r.get("fcf_yield") is not None and r["fcf_yield"] >= TH["fcf_yield_min"]
     debt_ok = r.get("debt_equity") is not None and r["debt_equity"] <= TH["debt_equity_max"]
-    moat_ok = (r.get("roic") is not None and r["roic"] >= TH["roic_min"]) or r.get("moat_tag") == "wide"
-    value_ok = (r.get("pe") is not None and r["pe"] <= TH["pe_max"]) or \
+    # wide 태그는 점수 보너스(config.MOAT_TAG_BONUS)에만 쓴다.
+    # 예전에는 태그 하나만으로 해자 축을 통과시켰는데, 정성 태그가 정량 규칙을 대신했다.
+    # 통과 여부는 ROIC 기준만 본다.
+    moat_ok = r.get("roic") is not None and r["roic"] >= TH["roic_min"]
+    pe = r.get("pe")
+    value_ok = (pe is not None and pe > 0 and pe <= TH["pe_max"]) or \
                (r.get("earnings_yield") is not None and r["earnings_yield"] >= TH["earnings_yield_min"])
     axes = [cf_ok, debt_ok, moat_ok, value_ok]
     if strict:
@@ -240,44 +249,71 @@ def _passes_filters(r: dict, strict: bool = False) -> bool:
 # ──────────────────────────────────────────────────────────────────────────
 # 유니버스 빌드
 # ──────────────────────────────────────────────────────────────────────────
+def _fetch_failed(raw: dict) -> bool:
+    return bool(raw.get("error")) or raw.get("market_cap") is None
+
+
+def markets_over_skip_threshold(stats: dict, threshold: float) -> list:
+    """스킵 비율이 threshold 를 넘는 시장 코드 목록. 시도 수가 0이면 건너뛴다."""
+    over = []
+    for market, item in (stats or {}).items():
+        attempted = int((item or {}).get("attempted") or 0)
+        skipped = int((item or {}).get("skipped") or 0)
+        if attempted <= 0:
+            continue
+        if skipped / attempted > threshold:
+            over.append(market)
+    return over
+
+
 def build_universe(market: str = "ALL", ref: dt.date = None,
                    use_cache: bool = True, limit: int = None) -> pd.DataFrame:
     """
-    market: 'US' | 'KR' | 'ALL'
-    반환: Dhandho 지표·점수·플래그가 채워진 DataFrame (dhandho_score 내림차순).
+    market: 'US' | 'KR' | 'JP' | 'ALL'
+    반환: Dhandho 지표, 점수, 플래그가 채워진 DataFrame (dhandho_score 내림차순).
+    df.attrs['skip'] 에 시장별 attempted/skipped 를 남긴다.
+    error 가 있는 미국, 일본 행은 표에서 빼지만 스킵 수에는 넣는다.
+    한국은 수동 폴백 행을 표에 남기고, 시가총액까지 없으면 스킵으로 센다.
     """
     ref = ref or dt.date.today()
     rows = []
+    stats = {
+        code: {"attempted": 0, "skipped": 0}
+        for code in ("US", "KR", "JP")
+    }
+
+    def _take(code: str, raw: dict, *, drop_errors: bool) -> None:
+        stats[code]["attempted"] += 1
+        if _fetch_failed(raw):
+            stats[code]["skipped"] += 1
+        if drop_errors and raw.get("error"):
+            return
+        rows.append(build_row(raw))
 
     if market in ("US", "ALL"):
         tickers = config.all_us()
         if limit:
             tickers = tickers[:limit]
         for t in tickers:
-            raw = data.fetch_us(t, use_cache=use_cache)
-            if raw.get("error"):
-                continue
-            rows.append(build_row(raw))
+            _take("US", data.fetch_us(t, use_cache=use_cache), drop_errors=True)
 
     if market in ("KR", "ALL"):
         for t, info in config.all_kr():
-            raw = data.fetch_kr(t, info, ref=ref, use_cache=use_cache)
-            rows.append(build_row(raw))
+            _take("KR", data.fetch_kr(t, info, ref=ref, use_cache=use_cache), drop_errors=False)
 
     if market in ("JP", "ALL"):
         tickers = config.all_jp()
         if limit:
             tickers = tickers[:limit]
         for t in tickers:
-            raw = data.fetch_jp(t, use_cache=use_cache)
-            if raw.get("error"):
-                continue
-            rows.append(build_row(raw))
+            _take("JP", data.fetch_jp(t, use_cache=use_cache), drop_errors=True)
 
     if not rows:
-        return pd.DataFrame()
-    df = pd.DataFrame(rows)
-    return df.sort_values("dhandho_score", ascending=False).reset_index(drop=True)
+        df = pd.DataFrame()
+    else:
+        df = pd.DataFrame(rows).sort_values("dhandho_score", ascending=False).reset_index(drop=True)
+    df.attrs["skip"] = stats
+    return df
 
 
 def diagnose(tickers, use_cache: bool = True) -> pd.DataFrame:
