@@ -165,6 +165,7 @@ class SignupSendTests(unittest.TestCase):
             ok, code = waitlist.join_free(
                 "Reader@Example.com",
                 {"source": "naver", "medium": "cpc", "campaign": "launch"},
+                consent=True,
             )
         self.assertEqual((ok, code), (True, "success_free"))
         email, list_id, attrs, key = add.call_args[0]
@@ -176,12 +177,14 @@ class SignupSendTests(unittest.TestCase):
         self.assertEqual(attrs["UTM_MEDIUM"], "cpc")
         self.assertEqual(attrs["UTM_CAMPAIGN"], "launch")
         self.assertIn("JOINED_AT", attrs)
+        self.assertEqual(attrs["CONSENT_AT"], attrs["JOINED_AT"])
+        self.assertTrue(attrs["CONSENT_VERSION"])
 
     def test_join_free_without_utm_is_direct(self):
         with mock.patch.object(config, "brevo_api_key", return_value="k"), \
              mock.patch.object(config, "brevo_free_list_id", return_value="1"), \
              mock.patch.object(brevo, "add_contact_to_list", return_value=True) as add:
-            ok, code = waitlist.join_free("a@b.co")
+            ok, code = waitlist.join_free("a@b.co", consent=True)
         self.assertEqual((ok, code), (True, "success_free"))
         attrs = add.call_args[0][2]
         self.assertEqual(attrs["SOURCE"], "direct")
@@ -190,7 +193,7 @@ class SignupSendTests(unittest.TestCase):
     def test_join_waitlist_blocked_when_promo_off(self):
         with mock.patch.object(config, "paid_promo_enabled", return_value=False), \
              mock.patch.object(brevo, "add_contact_to_list") as add:
-            ok, code = waitlist.join_waitlist("a@b.co", {"source": "ig"})
+            ok, code = waitlist.join_waitlist("a@b.co", {"source": "ig"}, consent=True)
         self.assertEqual((ok, code), (False, "promo_disabled"))
         add.assert_not_called()
 
@@ -199,7 +202,8 @@ class SignupSendTests(unittest.TestCase):
              mock.patch.object(config, "brevo_api_key", return_value="k"), \
              mock.patch.object(config, "brevo_waitlist_list_id", return_value="9"), \
              mock.patch.object(brevo, "add_contact_to_list", return_value=True) as add:
-            ok, code = waitlist.join_waitlist("a@b.co", {"source": "ig", "campaign": "early"})
+            ok, code = waitlist.join_waitlist(
+                "a@b.co", {"source": "ig", "campaign": "early"}, consent=True)
         self.assertEqual((ok, code), (True, "success_waitlist"))
         attrs = add.call_args[0][2]
         self.assertEqual(attrs["SOURCE"], "ig")

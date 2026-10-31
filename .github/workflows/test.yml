@@ -1,0 +1,43 @@
+# PR 과 main 푸시에서 단위 테스트만 돌린다. 새 스케줄(cron)은 없다.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v7
+
+      - name: 파이썬 설정
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: 테스트 의존성
+        # yfinance, pykrx 는 테스트가 네트워크를 타지 않도록 모킹한다.
+        run: pip install --quiet pandas
+
+      - name: unittest
+        run: python -m unittest discover -s tests -t .
+
+  webhook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v7
+
+      - name: Node 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 웹훅 서명 테스트
+        run: node --test webhook/src/signatures.test.js

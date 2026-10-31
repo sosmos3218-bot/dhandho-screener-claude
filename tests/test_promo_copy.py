@@ -94,9 +94,14 @@ class CopyTests(unittest.TestCase):
         strings = _i18n_strings()
         keys = (
             "signup_body_free",
+            "signup_body_free_full",
             "signup_body_paid",
             "msg_success_waitlist",
             "msg_promo_disabled",
+            "list_disclaimer",
+            "consent_checkbox",
+            "top_candidate_paid",
+            "top_candidate_free",
         )
         for key in keys:
             korean = strings[key]["ko"]
