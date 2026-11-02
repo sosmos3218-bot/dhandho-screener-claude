@@ -28,6 +28,7 @@ on:
 permissions:
   contents: write
 
+# 같은 그룹의 주간 실행은 겹치지 않는다. 진행 중이면 다음 실행은 기다린다.
 concurrency:
   group: weekly-dhandho-full
   cancel-in-progress: false
@@ -35,7 +36,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v7
@@ -56,13 +57,21 @@ jobs:
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
           BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
           SHOULD_SEND: ${{ github.event_name == 'schedule' || inputs.send_newsletter == true }}
+          DHANDHO_RUN_CACHE: "1"
         run: |
-          if [ "$SHOULD_SEND" = "true" ]; then
-            python weekly_run.py
-          else
-            echo "ℹ️ 수동 실행(send_newsletter=false) — 스캔/스냅샷/퍼블리시만 하고 발송은 건너뜁니다."
-            python weekly_run.py --no-send
-          fi
+          # 같은 잡 안에서 한 번 더 시도한다. 이미 받은 티커는 DHANDHO_RUN_CACHE 가 다시 받지 않는다.
+          ok=0
+          for attempt in 1 2; do
+            if [ "$SHOULD_SEND" = "true" ]; then
+              python weekly_run.py && ok=1 && break
+            else
+              echo "ℹ️ 수동 실행(send_newsletter=false) — 스캔/스냅샷/퍼블리시만 하고 발송은 건너뜁니다."
+              python weekly_run.py --no-send && ok=1 && break
+            fi
+            echo "⚠️ 스캔 시도 $attempt 실패. 성공한 티커는 캐시에 남고 다시 시도합니다."
+            sleep 5
+          done
+          [ "$ok" = "1" ]
 
       - name: published/snapshots 변경분 커밋 → GitHub(origin)
         # 스캔, 퍼블리시, 발송이 실패하면 깨진 산출물을 main 에 올리지 않는다.
@@ -73,19 +82,42 @@ jobs:
           if git diff --staged --quiet; then
             echo "변경 없음 — 커밋 생략"
           else
-            git commit -m "data: weekly publish $(date -u +%Y-%m-%d)"
-            git push origin HEAD:main
+            PUBLISH_DATE=$(TZ=Asia/Seoul date +%Y-%m-%d)
+            git commit -m "data: weekly publish ${PUBLISH_DATE}"
+            git fetch origin main
+            for attempt in 1 2 3; do
+              if git pull --rebase origin main; then
+                if git push origin HEAD:main; then
+                  echo "push ok"
+                  exit 0
+                fi
+              else
+                # rebase 중 데이터 파일만 겹치면 이번 스캔(재생 중인 커밋)을 남긴다.
+                if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+                  git checkout --theirs -- published snapshots || true
+                  git add published snapshots
+                  GIT_EDITOR=true git rebase --continue || git rebase --abort || true
+                fi
+              fi
+              echo "⚠️ rebase/push 실패 (시도 $attempt/3)"
+              git rebase --abort 2>/dev/null || true
+              sleep 4
+            done
+            echo "❌ main 반영 실패"
+            exit 1
           fi
 
       - name: Hugging Face Space에도 반영
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_GIT_USER: ${{ secrets.HF_GIT_USER }}
         run: |
           if [ -z "$HF_TOKEN" ]; then
             echo "ℹ️ HF_TOKEN 미설정 — HF Space push 생략 (GitHub 반영은 완료됨)"
             exit 0
           fi
           # 토큰을 remote URL 에 넣지 않는다. askpass 가 환경변수만 읽는다.
+          HF_NAME="${HF_GIT_USER:-sosmos}"
           git remote remove hf 2>/dev/null || true
           git remote add hf "https://huggingface.co/spaces/sosmos/dhandho-screener"
           ASKPASS=$(mktemp)
@@ -93,7 +125,7 @@ jobs:
           printf '%s\n' \
             '#!/bin/sh' \
             'case "$1" in' \
-            '  *Username*) printf "%s\n" "sosmos" ;;' \
+            "  *Username*) printf '%s\\n' '$HF_NAME' ;;" \
             '  *) printf "%s\n" "$HF_TOKEN" ;;' \
             'esac' > "$ASKPASS"
           export GIT_ASKPASS="$ASKPASS"

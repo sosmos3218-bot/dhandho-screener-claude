@@ -53,11 +53,6 @@ _S = {
         "en": "✅ Paid tier unlocked — showing all stocks",
         "ja": "✅ 有料版のロック解除済み — 全銘柄表示",
     },
-    "paid_email_fail": {
-        "ko": "결제 확인이 안 됩니다. 결제 시 사용한 이메일인지 확인하거나 잠시 후 다시 시도하세요.",
-        "en": "Couldn't verify payment. Check that this is the email you paid with, or try again shortly.",
-        "ja": "決済確認ができません。決済時のメールアドレスか確認するか、しばらくしてから再度お試しください。",
-    },
     "paid_code_fail": {"ko": "코드가 올바르지 않습니다.", "en": "That code isn't valid.", "ja": "コードが正しくありません。"},
     "paid_send_code_button": {
         "ko": "📧 인증 코드 받기", "en": "📧 Send login code", "ja": "📧 認証コードを受け取る",

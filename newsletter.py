@@ -13,12 +13,12 @@
   - 특정 종목 "매수 추천"이 아니라 *정량 기준 통과 목록 + 교육적 해설* 형식
   - 모든 발행물에 정보제공·비투자권유 면책 + 데이터 출처 명시
 """
-import datetime as dt
 import glob
 import json
 import os
 import sys
 
+import clock
 import config
 import tier_display
 
@@ -100,7 +100,7 @@ def edition_subject(date: str, tier: str, n_pass: int) -> str:
 
 def week_index():
     """교육 코너 로테이션 인덱스 (ISO 주차 기준)."""
-    return dt.date.today().isocalendar()[1] % len(EDU_SNIPPETS)
+    return clock.today_kst().isocalendar()[1] % len(EDU_SNIPPETS)
 
 
 # ──────────────────────────────────────────────────────────────────────────

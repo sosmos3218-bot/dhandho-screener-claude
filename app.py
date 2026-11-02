@@ -16,6 +16,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import admin_page
+import clock
 import config
 import i18n
 import paid_gate
@@ -433,7 +434,7 @@ if _full_list:
     st.download_button(
         i18n.t("csv_button") if _promo_on else i18n.t("csv_button_free"),
         data=full_df[cols].to_csv(index=False).encode("utf-8-sig"),
-        file_name=f"dhandho_screening_{dt.date.today().isoformat()}.csv",
+        file_name=f"dhandho_screening_{clock.today_kst().isoformat()}.csv",
         mime="text/csv",
     )
 

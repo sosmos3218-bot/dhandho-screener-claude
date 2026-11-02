@@ -15,12 +15,12 @@
 GitHub Actions의 해외 IP에서도 pykrx/yfinance가 안 막힘을 실측 검증한 뒤 완전히 이전했다
 (로컬에서 수동 실행/디버깅 목적으로는 여전히 그대로 사용 가능).
 """
-import datetime as dt
 import os
 import subprocess
 import sys
 import traceback
 
+import clock
 import config
 import newsletter
 import publish
@@ -38,7 +38,7 @@ def _auto_push():
         if subprocess.run(["git", "-C", BASE, "diff", "--staged", "--quiet"]).returncode == 0:
             print("ℹ️ 변경 없음 — push 생략", flush=True)
             return
-        msg = f"data: weekly publish {dt.date.today().isoformat()}"
+        msg = f"data: weekly publish {clock.kst_date_label()}"
         subprocess.run(["git", "-C", BASE, "commit", "-m", msg], check=True)
         # 원격 변경 먼저 합치고 push (데이터 파일이라 충돌 거의 없음)
         subprocess.run(["git", "-C", BASE, "pull", "--rebase", "--autostash"], check=False)
@@ -50,7 +50,9 @@ def _auto_push():
 
 
 def main():
-    ts = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 같은 KST 날짜에 다시 돌리면, 이미 성공한 티커는 네트워크를 다시 타지 않는다.
+    os.environ.setdefault("DHANDHO_RUN_CACHE", "1")
+    ts = clock.iso_kst()
     print(f"\n===== [{ts}] Dhandho 주간 파이프라인 시작 =====", flush=True)
 
     # 1) 전체 유니버스 1회 스캔
@@ -72,9 +74,7 @@ def main():
 
     # 2) 스냅샷 + diff
     try:
-        if snapshot.run("ALL", df=df) is None and df.empty:
-            print("❌ 스냅샷 단계 실패", flush=True)
-            return 1
+        snapshot.run("ALL", df=df)
     except Exception:
         print("❌ 스냅샷 단계 예외:", flush=True)
         traceback.print_exc()

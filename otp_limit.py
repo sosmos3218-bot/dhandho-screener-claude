@@ -5,10 +5,11 @@
 단일 인스턴스(HF Space, 로컬) 기준이다. 인스턴스가 여러 대면 저장소를 공유해야 한다.
 """
 import json
-import os
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import atomic_io
 
 COOLDOWN_SEC = 60
 MAX_PER_HOUR = 5
@@ -34,10 +35,7 @@ def _load(path: Path) -> dict:
 
 
 def _save(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(data), encoding="utf-8")
-    os.replace(tmp, path)
+    atomic_io.atomic_write_text(path, json.dumps(data))
 
 
 def check_and_mark(email: str, *, now=None, path: Path = None,

@@ -12,6 +12,7 @@
 """
 import datetime as dt
 import json
+import os
 import time
 import warnings
 from pathlib import Path
@@ -20,10 +21,10 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
+import atomic_io  # noqa: E402
+import clock  # noqa: E402
 import config  # noqa: E402
 
-_CACHE_DIR = Path(__file__).parent / ".cache"
-_CACHE_DIR.mkdir(exist_ok=True)
 _CACHE_TTL_HOURS = 12          # 디스크 캐시 유효 시간
 _DATE_FMT = "%Y%m%d"
 # ROIC NOPAT 추정은 config.tax_rate(market) 를 쓴다 (US 21%, KR 24.2%, JP 30.6%).
@@ -32,9 +33,35 @@ _DATE_FMT = "%Y%m%d"
 # ──────────────────────────────────────────────────────────────────────────
 # 디스크 캐시
 # ──────────────────────────────────────────────────────────────────────────
+def _cache_root() -> Path:
+    raw = os.environ.get("DHANDHO_CACHE_DIR", "").strip()
+    root = Path(raw) if raw else Path(__file__).resolve().parent / ".cache"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _safe_key(key: str) -> str:
+    return key.replace("/", "_").replace(".", "_")
+
+
 def _cache_path(key: str) -> Path:
-    safe = key.replace("/", "_").replace(".", "_")
-    return _CACHE_DIR / f"{safe}.json"
+    return _cache_root() / f"{_safe_key(key)}.json"
+
+
+def _parse_cache_ts(text: str) -> dt.datetime:
+    return clock.parse_timestamp(text)
+
+
+def run_cache_enabled() -> bool:
+    """같은 KST 날짜의 성공 건을 다시 받지 않는다. 주간 잡 재시도용."""
+    return os.environ.get("DHANDHO_RUN_CACHE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _run_cache_path(key: str):
+    if not run_cache_enabled():
+        return None
+    folder = _cache_root() / "run" / clock.today_kst().isoformat()
+    return folder / f"{_safe_key(key)}.json"
 
 
 def _cache_get(key: str):
@@ -42,9 +69,9 @@ def _cache_get(key: str):
     if not p.exists():
         return None
     try:
-        payload = json.loads(p.read_text())
-        ts = dt.datetime.fromisoformat(payload["_ts"])
-        if dt.datetime.now() - ts > dt.timedelta(hours=_CACHE_TTL_HOURS):
+        payload = json.loads(p.read_text(encoding="utf-8"))
+        ts = _parse_cache_ts(payload["_ts"])
+        if clock.now_kst() - ts > dt.timedelta(hours=_CACHE_TTL_HOURS):
             return None
         return payload["data"]
     except Exception:
@@ -53,16 +80,60 @@ def _cache_get(key: str):
 
 def _cache_set(key: str, data: dict):
     try:
-        _cache_path(key).write_text(
-            json.dumps({"_ts": dt.datetime.now().isoformat(), "data": data},
-                       ensure_ascii=False)
+        atomic_io.atomic_write_text(
+            _cache_path(key),
+            json.dumps({"_ts": clock.iso_kst(), "data": data}, ensure_ascii=False),
         )
     except Exception:
         pass
 
 
+def _run_cache_get(key: str):
+    path = _run_cache_path(key)
+    if path is None or not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        data = payload.get("data")
+        if isinstance(data, dict) and not data.get("error"):
+            return data
+    except Exception:
+        return None
+    return None
+
+
+def _run_cache_set(key: str, data: dict):
+    path = _run_cache_path(key)
+    if path is None or data.get("error"):
+        return
+    try:
+        atomic_io.atomic_write_text(
+            path,
+            json.dumps({"_ts": clock.iso_kst(), "data": data}, ensure_ascii=False),
+        )
+    except Exception:
+        pass
+
+
+def _lookup_fresh(key: str, use_cache: bool):
+    """12시간 캐시(요청 시) 또는 이번 주간 실행 캐시에서 성공 건을 찾는다."""
+    if use_cache:
+        cached = _cache_get(key)
+        if cached is not None:
+            return cached
+    return _run_cache_get(key)
+
+
+def _store_fresh(key: str, data: dict, use_cache: bool):
+    if data.get("error"):
+        return
+    if use_cache:
+        _cache_set(key, data)
+    _run_cache_set(key, data)
+
+
 def clear_cache():
-    for p in _CACHE_DIR.glob("*.json"):
+    for p in _cache_root().glob("*.json"):
         p.unlink(missing_ok=True)
 
 
@@ -187,28 +258,26 @@ def _yf_raw(yf_ticker: str, market: str) -> dict:
 
 def fetch_us(ticker: str, use_cache: bool = True) -> dict:
     """미국 종목 표준 dict. 실패/결측은 None 필드로."""
-    if use_cache:
-        cached = _cache_get(f"us_{ticker}")
-        if cached is not None:
-            return cached
+    key = f"us_{ticker}"
+    cached = _lookup_fresh(key, use_cache)
+    if cached is not None:
+        return cached
     out = _yf_raw(ticker, "US")
     out["moat_tag"] = config.moat_tag_us(ticker)
-    if use_cache and not out.get("error"):
-        _cache_set(f"us_{ticker}", out)
+    _store_fresh(key, out, use_cache)
     time.sleep(0.2)  # 다수 티커 스캔 시 레이트리밋 완화
     return out
 
 
 def fetch_jp(ticker: str, use_cache: bool = True) -> dict:
-    """일본 종목 표준 dict (yfinance .T — 가격·펀더멘털 모두 자동, JPY)."""
-    if use_cache:
-        cached = _cache_get(f"jp_{ticker}")
-        if cached is not None:
-            return cached
+    """일본 종목 표준 dict (yfinance .T, 가격과 펀더멘털 모두 자동, JPY)."""
+    key = f"jp_{ticker}"
+    cached = _lookup_fresh(key, use_cache)
+    if cached is not None:
+        return cached
     out = _yf_raw(ticker, "JP")
     out["moat_tag"] = config.moat_tag_jp(ticker)
-    if use_cache and not out.get("error"):
-        _cache_set(f"jp_{ticker}", out)
+    _store_fresh(key, out, use_cache)
     time.sleep(0.2)
     return out
 
@@ -281,12 +350,11 @@ def fetch_kr(ticker: str, info: dict, ref: dt.date = None, use_cache: bool = Tru
       - PER/PBR: 시총÷순이익, 시총÷자본 으로 직접 계산
       - yfinance 결측 필드는 config.py 수동값(info)으로 폴백
     """
-    ref = ref or dt.date.today()
+    ref = ref or clock.today_kst()
     cache_key = f"kr_{ticker}"
-    if use_cache:
-        cached = _cache_get(cache_key)
-        if cached is not None:
-            return cached
+    cached = _lookup_fresh(cache_key, use_cache)
+    if cached is not None:
+        return cached
 
     out = _empty_row(ticker, "KR")
     out["name"] = info.get("name", ticker)
@@ -361,8 +429,7 @@ def fetch_kr(ticker: str, info: dict, ref: dt.date = None, use_cache: bool = Tru
     if raw.get("error") and out.get("market_cap") is None:
         out["error"] = raw.get("error")
 
-    if use_cache and not out.get("error"):
-        _cache_set(cache_key, out)
+    _store_fresh(cache_key, out, use_cache)
     time.sleep(0.2)
     return out
 

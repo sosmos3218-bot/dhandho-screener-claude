@@ -16,6 +16,7 @@ import datetime as dt
 
 import pandas as pd
 
+import clock
 import config
 import data
 
@@ -275,7 +276,7 @@ def build_universe(market: str = "ALL", ref: dt.date = None,
     error 가 있는 미국, 일본 행은 표에서 빼지만 스킵 수에는 넣는다.
     한국은 수동 폴백 행을 표에 남기고, 시가총액까지 없으면 스킵으로 센다.
     """
-    ref = ref or dt.date.today()
+    ref = ref or clock.today_kst()
     rows = []
     stats = {
         code: {"attempted": 0, "skipped": 0}
