@@ -12,16 +12,33 @@
     python publish.py            # 신선하게 전체 스캔 후 내보내기
     python publish.py --cache    # 디스크 캐시 사용(빠름, 테스트용)
 """
-import datetime as dt
 import json
 import os
 import sys
+from datetime import datetime, timedelta
 
+import clock
 import screening
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(BASE, "published")
 OUT_FILE = os.path.join(OUT_DIR, "screening_data.json")
+
+
+def is_stale(generated_at: str, max_days: int = 8, now: datetime = None) -> bool:
+    """generated_at 이 max_days 보다 오래되면 True. 파싱 불가면 True.
+
+    비교는 타임존이 있는 시각끼리 한다. 예전에 저장된 타임존 없는 값은 UTC 로 본다.
+    now 가 naive 이면 역시 UTC 로 본다.
+    """
+    if not generated_at:
+        return True
+    try:
+        stamp = clock.parse_timestamp(generated_at)
+    except ValueError:
+        return True
+    current = clock.as_aware(now) if now is not None else clock.now_kst()
+    return (current - stamp) > timedelta(days=max_days)
 
 
 def run(use_cache: bool = False, limit=None, df=None):
@@ -35,12 +52,14 @@ def run(use_cache: bool = False, limit=None, df=None):
     # 전체 컬럼을 numpy/NaN 안전하게 직렬화 (to_json: numpy→기본형, NaN→null, list 컬럼 OK).
     # build_row 출력에 원시필드(market_cap·fcf·ebit…)가 모두 들어있어 클라우드에서 재채점 가능.
     rows = json.loads(df.to_json(orient="records"))
+    skip = dict(getattr(df, "attrs", {}).get("skip") or {})
 
     payload = {
-        "generated_at": dt.datetime.now().isoformat(timespec="seconds"),
+        "generated_at": clock.iso_kst(),
         "universe": "ALL (S&P500 + 한국 + 일본)",
         "n": len(df),
         "n_pass": int(df["passes"].sum()),
+        "skip": skip,
         "rows": rows,
     }
     json.dump(payload, open(OUT_FILE, "w", encoding="utf-8"), ensure_ascii=False)

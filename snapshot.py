@@ -11,11 +11,11 @@
 
 cron / 주간 스케줄(SKILL.md)이 이 스크립트를 호출한다.
 """
-import datetime as dt
 import json
 import os
 import sys
 
+import clock
 import screening
 
 SNAP_DIR = os.path.join(os.path.dirname(__file__), "snapshots")
@@ -36,7 +36,7 @@ def _clean(row: dict) -> dict:
 
 
 def run(market="ALL", limit=None, df=None):
-    today = dt.date.today().isoformat()
+    today = clock.kst_date_label()
     print(f"[{today}] Dhandho 스냅샷 시작 (market={market}, limit={limit}) ...")
     if df is None:  # df 를 넘기면 재스캔 생략 (weekly_run 이 1회 스캔 공유)
         df = screening.build_universe(market, use_cache=False, limit=limit)
