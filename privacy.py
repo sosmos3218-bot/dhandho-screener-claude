@@ -2,11 +2,11 @@
 """개인정보 처리방침 초안.
 
 변호사 검토 전 초안이다. 화면과 가입 동의 버전에 같은 POLICY_VERSION 을 쓴다.
-연락처는 오너가 [담당자 이메일] 을 실제 주소로 바꾼 뒤 공개한다.
+연락처는 sosmos3218@gmail.com 이다.
 """
 
 POLICY_VERSION = "2026-10-31-draft"
-CONTACT_PLACEHOLDER = "[담당자 이메일]"
+CONTACT_PLACEHOLDER = "sosmos3218@gmail.com"
 
 # Brevo 컨택 속성. 스키마에 없으면 조용히 버려진다.
 BREVO_CONSENT_ATTRIBUTES = {

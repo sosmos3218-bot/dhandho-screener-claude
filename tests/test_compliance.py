@@ -73,7 +73,7 @@ class ConsentTests(unittest.TestCase):
 
     def test_privacy_draft_has_required_points(self):
         text = privacy.markdown("ko")
-        for phrase in ("초안", "변호사", "뉴스레터", "이메일", "Brevo", "구독", "[담당자 이메일]", privacy.POLICY_VERSION):
+        for phrase in ("초안", "변호사", "뉴스레터", "이메일", "Brevo", "구독", "sosmos3218@gmail.com", privacy.POLICY_VERSION):
             self.assertIn(phrase, text)
         self.assertNotIn("·", text)
         self.assertNotIn("—", text)
