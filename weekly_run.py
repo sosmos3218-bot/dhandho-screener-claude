@@ -15,12 +15,13 @@
 GitHub Actions의 해외 IP에서도 pykrx/yfinance가 안 막힘을 실측 검증한 뒤 완전히 이전했다
 (로컬에서 수동 실행/디버깅 목적으로는 여전히 그대로 사용 가능).
 """
-import datetime as dt
 import os
 import subprocess
 import sys
 import traceback
 
+import clock
+import config
 import newsletter
 import publish
 import screening
@@ -37,7 +38,7 @@ def _auto_push():
         if subprocess.run(["git", "-C", BASE, "diff", "--staged", "--quiet"]).returncode == 0:
             print("ℹ️ 변경 없음 — push 생략", flush=True)
             return
-        msg = f"data: weekly publish {dt.date.today().isoformat()}"
+        msg = f"data: weekly publish {clock.kst_date_label()}"
         subprocess.run(["git", "-C", BASE, "commit", "-m", msg], check=True)
         # 원격 변경 먼저 합치고 push (데이터 파일이라 충돌 거의 없음)
         subprocess.run(["git", "-C", BASE, "pull", "--rebase", "--autostash"], check=False)
@@ -49,7 +50,9 @@ def _auto_push():
 
 
 def main():
-    ts = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 같은 KST 날짜에 다시 돌리면, 이미 성공한 티커는 네트워크를 다시 타지 않는다.
+    os.environ.setdefault("DHANDHO_RUN_CACHE", "1")
+    ts = clock.iso_kst()
     print(f"\n===== [{ts}] Dhandho 주간 파이프라인 시작 =====", flush=True)
 
     # 1) 전체 유니버스 1회 스캔
@@ -59,33 +62,54 @@ def main():
         print("❌ 유니버스 스캔 실패:", flush=True)
         traceback.print_exc()
         return 1
+    skip = dict(getattr(df, "attrs", {}).get("skip") or {})
+    print(f"스킵 집계: {skip}", flush=True)
     if df is None or df.empty:
         print("❌ 수집 데이터 없음 — 중단", flush=True)
         return 1
-    print(f"✅ 스캔 완료: {len(df)}종목 · 통과 {int(df['passes'].sum())}", flush=True)
+    print(f"✅ 스캔 완료: {len(df)}종목, 통과 {int(df['passes'].sum())}", flush=True)
+
+    over = screening.markets_over_skip_threshold(skip, config.skip_rate_threshold())
+    # 임계값을 넘겨도 스킵 수는 published JSON 에 남긴다. 발송은 하지 않는다.
 
     # 2) 스냅샷 + diff
     try:
         snapshot.run("ALL", df=df)
     except Exception:
-        print("⚠️ 스냅샷 단계 예외:", flush=True)
+        print("❌ 스냅샷 단계 예외:", flush=True)
         traceback.print_exc()
+        return 1
 
     # 3) 배포용 데이터
     try:
-        publish.run(df=df)
+        published = publish.run(df=df)
     except Exception:
-        print("⚠️ 퍼블리시 단계 예외:", flush=True)
+        print("❌ 퍼블리시 단계 예외:", flush=True)
         traceback.print_exc()
+        return 1
+    if not published:
+        print("❌ 퍼블리시 결과가 없습니다.", flush=True)
+        return 1
+
+    if over:
+        print(f"❌ 스킵 비율이 임계값({config.skip_rate_threshold():.0%})을 넘었습니다: {over}", flush=True)
+        return 1
 
     # 4) 뉴스레터 생성 (+발송)
     payload = newsletter.generate()
-    if payload and "--no-send" not in sys.argv:
+    if payload is None:
+        print("❌ 뉴스레터 생성 실패", flush=True)
+        return 1
+    if "--no-send" not in sys.argv:
         try:
-            newsletter.send(payload)
+            sent = newsletter.send(payload)
         except Exception:
-            print("⚠️ 발송 단계 예외(생성물은 정상 저장됨):", flush=True)
+            print("❌ 발송 단계 예외:", flush=True)
             traceback.print_exc()
+            return 1
+        if newsletter.delivery_configured() and not sent:
+            print("❌ 발송 설정은 있는데 발송에 실패했습니다.", flush=True)
+            return 1
 
     # 5) 선택적 자동 push
     if os.environ.get("DHANDHO_AUTO_PUSH") == "1":

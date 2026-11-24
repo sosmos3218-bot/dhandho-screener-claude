@@ -1,0 +1,48 @@
+# PR 과 main 푸시에서 단위 테스트만 돌린다. 새 스케줄(cron)은 없다.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v7
+
+      - name: 파이썬 설정
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: 테스트 의존성
+        # Space 와 같은 requirements.txt 를 쓴다. ruff 는 런타임 의존성이 아니라 여기서만 고정한다.
+        run: |
+          pip install --quiet -r requirements.txt
+          pip install --quiet ruff==0.17.3
+
+      - name: ruff
+        run: ruff check .
+
+      - name: unittest
+        run: python -m unittest discover -s tests -t .
+
+  webhook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v7
+
+      - name: Node 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 웹훅 서명 테스트
+        run: node --test webhook/src/signatures.test.js

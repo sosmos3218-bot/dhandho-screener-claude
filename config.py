@@ -383,3 +383,88 @@ def admin_password() -> str:
     """관리자 페이지(앱 URL + ?admin=1) 접근 비밀번호. 미설정 시 관리자 페이지 자체가 비활성화된다."""
     return (_os.environ.get("ADMIN_PASSWORD", "").strip()
             or str(_load_secrets().get("admin_password", "")).strip())
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 8) 유료 플랜 홍보 (유사투자자문업 신고 전 기본 꺼짐)
+#    신고 완료 후 PAID_PROMO_ENABLED=1 로 켠다. 켜져 있을 때의 할인 문구는
+#    기간 한정(첫 12개월, EARLYBIRD_DEADLINE)만 허용한다.
+# ──────────────────────────────────────────────────────────────────────────
+_PROMO_ON = {"1", "true", "yes", "on"}
+_EARLYBIRD_DEADLINE_PLACEHOLDER = "YYYY-MM-DD"
+
+
+def paid_promo_enabled() -> bool:
+    """유료판 얼리버드 안내와 대기 신청을 화면에 낼지.
+
+    환경변수 PAID_PROMO_ENABLED 가 있으면 그것만 보고, 없으면 secrets.json 의
+    paid_promo_enabled 를 본다. 둘 다 없으면 False.
+    """
+    raw = _os.environ.get("PAID_PROMO_ENABLED", "").strip()
+    if not raw:
+        raw = str(_load_secrets().get("paid_promo_enabled", "")).strip()
+    return raw.lower() in _PROMO_ON
+
+
+def _flag_on(env_name: str, secret_key: str) -> bool:
+    raw = _os.environ.get(env_name, "").strip()
+    if not raw:
+        raw = str(_load_secrets().get(secret_key, "")).strip()
+    return raw.lower() in _PROMO_ON
+
+
+def portfolio_check_enabled() -> bool:
+    """보유종목 개별 점수 화면. 기본 꺼짐. PORTFOLIO_CHECK_ENABLED=1 로 켠다."""
+    return _flag_on("PORTFOLIO_CHECK_ENABLED", "portfolio_check_enabled")
+
+
+def brevo_doi_template_id() -> str:
+    """Brevo double opt-in 템플릿 ID. 비어 있으면 기존처럼 바로 리스트에 넣는다."""
+    return (_os.environ.get("BREVO_DOI_TEMPLATE_ID", "").strip()
+            or str(_load_secrets().get("brevo_doi_template_id", "")).strip())
+
+
+def brevo_doi_redirect_url() -> str:
+    """DOI 확인 후 이동할 URL. 템플릿 ID 와 함께 있어야 double opt-in 을 탄다."""
+    return (_os.environ.get("BREVO_DOI_REDIRECT_URL", "").strip()
+            or str(_load_secrets().get("brevo_doi_redirect_url", "")).strip())
+
+
+def skip_rate_threshold() -> float:
+    """시장별 스킵 비율이 이 값을 넘으면 주간 파이프라인이 실패한다. 기본 0.10."""
+    raw = (_os.environ.get("SKIP_RATE_THRESHOLD", "").strip()
+           or str(_load_secrets().get("skip_rate_threshold", "")).strip()
+           or "0.10")
+    try:
+        value = float(raw)
+    except ValueError:
+        return 0.10
+    if value < 0:
+        return 0.0
+    if value > 1:
+        return 1.0
+    return value
+
+
+# 시장별 실효세율 (ROIC 의 NOPAT 추정). 필요하면 이 딕셔너리만 고친다.
+TAX_RATES = {
+    "US": 0.21,
+    "KR": 0.242,   # 법인세 약 24.2% (지방소득세 포함, 대략)
+    "JP": 0.306,   # 실효세율 약 30.6%
+}
+
+
+def tax_rate(market: str) -> float:
+    return TAX_RATES.get((market or "").upper(), TAX_RATES["US"])
+
+
+def earlybird_deadline() -> str:
+    """기간 한정 할인 신청 마감일 표시 문자열. 오너가 실제 날짜로 바꾼다.
+
+    환경변수 EARLYBIRD_DEADLINE, secrets.json earlybird_deadline 순.
+    비어 있으면 'YYYY-MM-DD' 자리표시자를 그대로 보여 준다.
+    """
+    raw = _os.environ.get("EARLYBIRD_DEADLINE", "").strip()
+    if not raw:
+        raw = str(_load_secrets().get("earlybird_deadline", "")).strip()
+    return raw or _EARLYBIRD_DEADLINE_PLACEHOLDER

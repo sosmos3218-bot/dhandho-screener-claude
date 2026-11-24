@@ -5,6 +5,14 @@ from __future__ import annotations
 import config
 
 
+LIST_DISCLAIMER_KO = "사전에 정한 조건을 통과한 목록이며 투자 권유가 아닙니다."
+
+
+def shows_full_public_list(promo_enabled: bool, is_paid: bool) -> bool:
+    """유료 홍보가 꺼져 있거나 이미 유료 열람이면 통과 목록 전체를 보여 준다."""
+    return bool(is_paid or not promo_enabled)
+
+
 def free_preview_list(sorted_passes: list) -> list:
     """Dhandho 점수 내림차순 통과 종목에서 무료 미리보기 구간(config.FREE_TIER_SKIP~ 이하) 반환."""
     start = config.FREE_TIER_SKIP
