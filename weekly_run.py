@@ -48,6 +48,21 @@ def _auto_push():
         traceback.print_exc()
 
 
+def should_send(argv, env):
+    """Send only when explicitly opted in. Default is no send.
+
+    --no-send always wins. Otherwise --send or DHANDHO_SEND_NEWSLETTER=true/1/yes.
+    Scheduled GitHub Actions runs must not send unless the workflow passes --send.
+    """
+    argv = list(argv or [])
+    if "--no-send" in argv:
+        return False
+    if "--send" in argv:
+        return True
+    flag = (env or {}).get("DHANDHO_SEND_NEWSLETTER", "")
+    return str(flag).strip().lower() in {"1", "true", "yes"}
+
+
 def main():
     ts = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\n===== [{ts}] Dhandho 주간 파이프라인 시작 =====", flush=True)
@@ -78,14 +93,17 @@ def main():
         print("⚠️ 퍼블리시 단계 예외:", flush=True)
         traceback.print_exc()
 
-    # 4) 뉴스레터 생성 (+발송)
+    # 4) 뉴스레터 생성 (+명시적으로 켠 경우에만 발송)
     payload = newsletter.generate()
-    if payload and "--no-send" not in sys.argv:
+    if payload and should_send(sys.argv, os.environ):
         try:
             newsletter.send(payload)
         except Exception:
             print("⚠️ 발송 단계 예외(생성물은 정상 저장됨):", flush=True)
             traceback.print_exc()
+    elif payload:
+        print("ℹ️ 뉴스레터는 생성만 하고 발송은 건너뜁니다. "
+              "발송하려면 --send 또는 DHANDHO_SEND_NEWSLETTER=true 가 필요합니다.", flush=True)
 
     # 5) 선택적 자동 push
     if os.environ.get("DHANDHO_AUTO_PUSH") == "1":
